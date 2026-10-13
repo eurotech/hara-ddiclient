@@ -46,7 +46,7 @@ jobs:
             key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
             restore-keys: ${{ runner.os }}-gradle
 
-        #Build with unit tests only (no Docker) on Windows or macOS (when not a PR)
+        #Build with unit tests (no Docker) only on Windows or macOS (when not a PR)
         - name: Gradle build
           env:
             SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
