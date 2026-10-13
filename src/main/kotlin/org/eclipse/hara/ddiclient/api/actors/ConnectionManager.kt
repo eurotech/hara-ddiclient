@@ -248,8 +248,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         val timer = ticker(
             delayMillis = Math.max(state.pingInterval.toMillis(), 5_000),
             initialDelayMillis = Math.max(state.pingInterval.minus(elapsed).toMillis(), 0),
-            mode = TickerMode.FIXED_PERIOD,
-            context = newSingleThreadContext("MyOwnThread"))
+            mode = TickerMode.FIXED_PERIOD)
         launch {
             for (event in timer) {
                 channel.send(In.Ping)
