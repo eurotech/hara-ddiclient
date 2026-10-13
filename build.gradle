@@ -12,7 +12,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 */
 
 plugins {
-    id 'java'
+    id 'java-library'
     id 'jacoco'
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.license.report)  apply true
@@ -40,14 +40,16 @@ sonar {
 allprojects {
     apply plugin: 'org.jetbrains.kotlin.jvm'
     apply plugin: 'maven-publish'
-    apply plugin: 'java'
+    apply plugin: 'java-library'
     apply plugin: "org.sonarqube"
 
     apply from: "$rootDir/ktlint.gradle"
 
+    // `api` = a library whose types appear in the module's public API: it is published with
+    // compile scope, so users can compile against Hara without declaring it themselves
     dependencies {
 
-        implementation libs.kotlin.stdlib
+        api libs.kotlin.stdlib
         implementation libs.kotlin.coroutines.core
     }
 
@@ -96,14 +98,14 @@ project(':ddi-consumer') {
 
     final def subprj = ':ddi-consumer:ddi-api'
     dependencies {
-        implementation project(subprj)
-        implementation project(':hara-ddiclient-api')
+        api project(subprj)
+        api project(':hara-ddiclient-api')
         implementation libs.retrofit.converter.gson
     }
     allprojects {
         dependencies {
-            implementation libs.okhttp
-            implementation libs.retrofit
+            api libs.okhttp
+            api libs.retrofit
             implementation libs.slf4j.api
         }
     }
@@ -131,7 +133,8 @@ project(':hara-ddiclient-api') {
     group 'org.eclipse.hara.hara-ddiclient.api'
     version app_version
     dependencies {
-        implementation libs.okhttp
+        api libs.okhttp
+        api libs.kotlin.coroutines.core
     }
 }
 
@@ -319,7 +322,7 @@ test {
 
 
 dependencies{
-    implementation project(':hara-ddiclient-api')
+    api project(':hara-ddiclient-api')
     implementation project(':ddi-consumer')
     implementation project(':ddi-consumer:ddi-api')
 
