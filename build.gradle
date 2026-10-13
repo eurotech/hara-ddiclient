@@ -20,7 +20,7 @@ plugins {
     alias(libs.plugins.sonarqube)  apply true
 }
 
-final def app_version = '2.0.0'
+final def app_version = '3.0.0-esf-java8-SNAPSHOT'
 ext.keep_test_container_alive = project.hasProperty('keep_test_container_alive') ? project.getProperty('keep_test_container_alive').toBoolean() : false
 
 def sonarProjectKey = System.getenv("SONAR_CLOUD_PROJECT_KEY")
