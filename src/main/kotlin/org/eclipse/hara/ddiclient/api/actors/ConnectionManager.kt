@@ -276,11 +276,12 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
     companion object {
         fun of(scope: ActorScope) = ConnectionManager(scope)
 
-        // Same output as the joda-time toString() used before: always milliseconds, UTC
-        private val INSTANT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
-        private val LOCAL_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").withZone(ZoneOffset.UTC)
+        // Same output as the joda-time toString() used before: always milliseconds, UTC.
+        // Internal, like State, for the unit tests
+        internal val INSTANT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+        internal val LOCAL_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").withZone(ZoneOffset.UTC)
 
-        private data class State(
+        internal data class State(
             val serverPingInterval: Duration = Duration.ofSeconds(0),
             val clientPingInterval: Duration? = null,
             val backoffPingInterval: Duration? = null,
