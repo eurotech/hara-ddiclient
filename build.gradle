@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 /*
@@ -63,6 +64,20 @@ allprojects {
         toolchain {
             languageVersion = JavaLanguageVersion.of(17)
         }
+    }
+
+    // Build with JDK 17 but emit Java 8 bytecode, checked against the Java 8 API,
+    // so the same jars run on Java 8 and Java 17 devices. Main code only: the test
+    // libraries (TestNG, MockK) need Java 11+, so tests keep the toolchain's level
+    tasks.named('compileKotlin', KotlinCompile) {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_1_8
+            freeCompilerArgs.add("-Xjdk-release=1.8")
+        }
+    }
+
+    tasks.named('compileJava', JavaCompile) {
+        options.release = 8
     }
 
     jacocoTestReport {
