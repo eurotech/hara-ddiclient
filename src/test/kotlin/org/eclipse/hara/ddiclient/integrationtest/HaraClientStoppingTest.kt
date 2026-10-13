@@ -34,7 +34,9 @@ import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils
 import org.eclipse.hara.ddiclient.integrationtest.utils.internalLog
 import org.eclipse.hara.ddiclient.integrationtest.utils.logCurrentFunctionName
 import org.testng.annotations.AfterClass
+import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
+import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
 
 class HaraClientStoppingTest : AbstractTest() {
@@ -67,6 +69,14 @@ class HaraClientStoppingTest : AbstractTest() {
     override fun afterTest() {
         super.afterTest()
         setPollingTime("00:00:10")
+    }
+
+    // These tests stop the client mid-download and leave files behind. All actions share
+    // one download directory, so the next test would find its file "already downloaded"
+    // and never see the download start it waits for.
+    @BeforeMethod
+    fun cleanDownloadDirectory() {
+        File(TestUtils.downloadRootDirPath).deleteRecursively()
     }
 
     @Test(enabled = true, priority = 41, timeOut = 45_000, invocationCount = 1)
