@@ -53,6 +53,19 @@ class ModelTest {
     }
 
     @Test
+    fun controllerBaseWithADeploymentAndACancel() {
+        val response = gson.fromJson(
+            """
+            {"config":{"polling":{"sleep":"00:00:30"}},
+             "_links":{"deploymentBase":{"href":"$BASE/deploymentBase/42?c=-2129030598"},
+                       "cancelAction":{"href":"$BASE/cancelAction/7"}}}
+            """, ControllerBaseResponse::class.java)
+
+        assertEquals(response.deploymentActionId(), "42")
+        assertEquals(response.cancelActionId(), "7")
+    }
+
+    @Test
     fun controllerBaseWithNothingToDo() {
         val response = gson.fromJson(
             """{"config":{"polling":{"sleep":"00:00:30"}},"_links":{}}""", ControllerBaseResponse::class.java)
@@ -121,6 +134,16 @@ class ModelTest {
             "7",
             CancelFeedbackRequest.Status.Execution.closed,
             CancelFeedbackRequest.Status.Result.Finished.success).time
+        val after = Instant.now().toEpochMilli()
+
+        assertTrue(time.matches(Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z""")), time)
+        assertTrue(Instant.parse(time).toEpochMilli() in before..after, time)
+    }
+
+    @Test
+    fun configDataTimeIsTheCurrentInstantWithMilliseconds() {
+        val before = Instant.now().toEpochMilli()
+        val time = ConfigurationDataRequest.of(mapOf("k" to "v"), ConfigurationDataRequest.Mode.merge).time
         val after = Instant.now().toEpochMilli()
 
         assertTrue(time.matches(Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z""")), time)

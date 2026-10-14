@@ -152,7 +152,7 @@ data class ConfigurationDataRequest(
     companion object {
         fun of(map: Map<String, String>? = null, mode: Mode) = ConfigurationDataRequest(
                 "",
-                "20140511T121314", // Instant.now().toString(),
+                FEEDBACK_TIME_FORMAT.format(Instant.now()),
                 Status(
                         Status.Execution.closed,
                         Status.Result(
@@ -201,12 +201,13 @@ data class ControllerBaseResponse(
     fun requireConfigData() = _links?.configData != null
     fun requireDeployment() = _links?.deploymentBase != null
     fun requireCancel() = _links?.cancelAction != null
-    fun deploymentActionId() = xxxAid("deploymentBase")
-    fun cancelActionId() = xxxAid("cancelAction")
-    private fun xxxAid(pfx: String) =
+    fun deploymentActionId() = xxxAid("deploymentBase", _links?.deploymentBase)
+    fun cancelActionId() = xxxAid("cancelAction", _links?.cancelAction)
+    // Each id comes from its own link: the server may send both at once
+    private fun xxxAid(pfx: String, link: Links.Link?) =
             ".*$pfx/([a-zA-Z0-9_]+)"
             .toRegex()
-            .find(_links?.deploymentBase?.href ?: _links?.cancelAction?.href ?: "")
+            .find(link?.href ?: "")
             ?.destructured
             ?.component1()!!
 }
