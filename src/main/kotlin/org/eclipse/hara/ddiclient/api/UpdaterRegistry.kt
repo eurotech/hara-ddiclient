@@ -37,7 +37,7 @@ class UpdaterRegistry(private vararg val updaters: Updater) {
                     }
                 }!!
             }.toSet())
-        }.toSortedSet(Comparator { p1, p2 -> p1.priority.compareTo(p2.priority) })
+        }.sortedBy { it.priority }.toCollection(LinkedHashSet()) // stable: equal priorities keep the registration order
     }
 
     // An updater that fails to answer is treated as not cancellable

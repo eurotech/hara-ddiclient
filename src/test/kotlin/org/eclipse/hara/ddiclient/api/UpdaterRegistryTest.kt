@@ -36,6 +36,17 @@ class UpdaterRegistryTest {
     }
 
     @Test
+    fun updatersWithTheSamePriorityAreAllKeptInRegistrationOrder() {
+        val appUpdater = TypeUpdater("application", priority = 0)
+        val osUpdater = TypeUpdater("os", priority = 0)
+        val lateUpdater = TypeUpdater("os", priority = 1)
+
+        val ordered = UpdaterRegistry(lateUpdater, appUpdater, osUpdater).allUpdatersWithSwModulesOrderedForPriority(chunks)
+
+        assertEquals(ordered.map { it.updater }, listOf(appUpdater, osUpdater, lateUpdater))
+    }
+
+    @Test
     fun eachUpdaterGetsOnlyTheModulesItAskedFor() {
         val ordered = UpdaterRegistry(TypeUpdater("os", priority = 1), TypeUpdater("application", priority = 2))
             .allUpdatersWithSwModulesOrderedForPriority(chunks)

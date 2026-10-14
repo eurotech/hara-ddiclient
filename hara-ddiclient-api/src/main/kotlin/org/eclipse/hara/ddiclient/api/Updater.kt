@@ -145,7 +145,8 @@ interface Updater {
     /**
      *  Class that represents a prioritized software module set.
      *  SwModApplications are applied in ascending order of
-     *  the [priority] field
+     *  the [priority] field; those with the same priority are applied
+     *  in the order their updaters were registered.
      *  @property priority defines the order of application of the SwModsApplication.
      *  @property swModules set of software modules that will be installed
      *
