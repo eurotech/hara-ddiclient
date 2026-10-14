@@ -82,6 +82,17 @@ interface DdiRestApi {
     suspend fun downloadArtifact(@Url url: String): ResponseBody
 
     /**
+     * Handles GET [DdiArtifact] download request for part of the artifact.
+     *
+     * @param url
+     * @param range
+     * the Range header, e.g. "bytes=1024-"; null to download the whole artifact
+     */
+    @Streaming
+    @GET
+    suspend fun downloadArtifact(@Url url: String, @Header("Range") range: String?): Response<ResponseBody>
+
+    /**
      * Resource for software module.
      *
      * @param tenant

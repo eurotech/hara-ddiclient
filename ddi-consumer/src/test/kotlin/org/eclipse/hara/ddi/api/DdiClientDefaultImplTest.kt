@@ -210,6 +210,88 @@ class DdiClientDefaultImplTest {
     }
 
     @Test
+    fun aDownloadFromTheStartSendsNoRange() = runBlocking {
+        server.enqueue(MockResponse().setBody("artifact content"))
+
+        val artifact = client(targetToken = "tt").downloadArtifact(artifactUrl(), 0)
+
+        assertEquals(artifact.offset, 0L)
+        assertEquals(artifact.stream.use { it.readBytes().decodeToString() }, "artifact content")
+        assertNull(server.next().getHeader("Range"))
+    }
+
+    @Test
+    fun aResumedDownloadAsksForTheRestOfTheArtifact() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(206)
+            .setHeader("Content-Range", "bytes 9-15/16").setBody("content"))
+
+        val artifact = client(targetToken = "tt").downloadArtifact(artifactUrl(), 9)
+
+        assertEquals(artifact.offset, 9L)
+        assertEquals(artifact.stream.use { it.readBytes().decodeToString() }, "content")
+        assertEquals(server.next().getHeader("Range"), "bytes=9-")
+    }
+
+    @Test
+    fun aServerIgnoringTheRangeSendsTheWholeArtifact() = runBlocking {
+        server.enqueue(MockResponse().setBody("artifact content"))
+
+        val artifact = client(targetToken = "tt").downloadArtifact(artifactUrl(), 9)
+
+        assertEquals(artifact.offset, 0L)
+        assertEquals(artifact.stream.use { it.readBytes().decodeToString() }, "artifact content")
+    }
+
+    @Test
+    fun anUnsatisfiableRangeDownloadsTheWholeArtifact() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(416).setHeader("Content-Range", "bytes */16"))
+        server.enqueue(MockResponse().setBody("artifact content"))
+
+        val artifact = client(targetToken = "tt").downloadArtifact(artifactUrl(), 20)
+
+        assertEquals(artifact.offset, 0L)
+        assertEquals(artifact.stream.use { it.readBytes().decodeToString() }, "artifact content")
+        assertEquals(server.next().getHeader("Range"), "bytes=20-")
+        assertNull(server.next().getHeader("Range"))
+    }
+
+    @Test
+    fun aPartOtherThanTheOneAskedForIsNotUsed() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(206)
+            .setHeader("Content-Range", "bytes 0-15/16").setBody("artifact content"))
+        server.enqueue(MockResponse().setBody("artifact content"))
+
+        val artifact = client(targetToken = "tt").downloadArtifact(artifactUrl(), 9)
+
+        assertEquals(artifact.offset, 0L)
+        assertEquals(artifact.stream.use { it.readBytes().decodeToString() }, "artifact content")
+        assertEquals(server.requestCount, 2)
+    }
+
+    @Test
+    fun aFailedResumedDownloadThrows() {
+        server.enqueue(MockResponse().setResponseCode(404))
+
+        expectThrows(HttpException::class.java) {
+            runBlocking { client(targetToken = "tt").downloadArtifact(artifactUrl(), 9) }
+        }
+    }
+
+    @Test
+    fun theDefaultImplementationDownloadsTheWholeArtifact() = runBlocking {
+        // Like a DdiClient written before downloadArtifact(url, offset) existed
+        val ddiClient = object : DdiClient by client(targetToken = "tt") {
+            override suspend fun downloadArtifact(url: String, offset: Long) = super.downloadArtifact(url, offset)
+        }
+        server.enqueue(MockResponse().setBody("artifact content"))
+
+        val artifact = ddiClient.downloadArtifact(artifactUrl(), 9)
+
+        assertEquals(artifact.offset, 0L)
+        assertNull(server.next().getHeader("Range"))
+    }
+
+    @Test
     fun aClientRecreatedWithTheSameBuilderUsesOnlyItsOwnToken() = runBlocking {
         val builder = OkHttpClient.Builder()
         client(targetToken = "old", builder = builder)
@@ -228,6 +310,9 @@ class DdiClientDefaultImplTest {
     ) = DdiClientDefaultImpl.of(
         HaraClientData(TENANT, CONTROLLER_ID, server.url("/").toString(), gatewayToken, targetToken),
         builder)
+
+    private fun artifactUrl() =
+        server.url("/$TENANT/controller/v1/$CONTROLLER_ID/softwaremodules/3/artifacts/image.bin").toString()
 
     private fun configData() = ConfigurationDataRequest.of(mapOf("k" to "v"), ConfigurationDataRequest.Mode.merge)
 
