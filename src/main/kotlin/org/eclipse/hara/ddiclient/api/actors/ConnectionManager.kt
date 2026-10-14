@@ -48,26 +48,24 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
     init{
         scope.launch{
 
-            val isSuccessful: (Response<Unit>) -> Boolean = { response ->
-                when(response.code()){
-                    in 500 .. 599, 409, 429 -> false
-                    else -> true
-                }
-            }
-
             for(msg in feedbackChannel){
                 var attempt = 0
-                var success : Boolean
+                var outcome : FeedbackOutcome
+                var response : Response<Unit>?
                 do{
-                    success = sendFeedback(msg.decorateMessage(attempt))
-                        .map(isSuccessful)
-                        .getOrDefault(false)
-                    val retry = ++attempt < 168 && !success
+                    val result = sendFeedback(msg.decorateMessage(attempt))
+                    response = result.getOrNull()
+                    outcome = response?.let { feedbackOutcome(it.code()) } ?: FeedbackOutcome.RETRY
+                    val retry = ++attempt < 168 && outcome == FeedbackOutcome.RETRY
 
                     if(retry){
                         delay(2.0.pow(attempt).toLong().coerceIn(60_000, 3_600_000))
                     }
                 } while(retry)
+                if (outcome == FeedbackOutcome.REFUSED) {
+                    LOG.error("The server refused the feedback with HTTP {}, not sending it again: {}", response?.code(), msg)
+                }
+                val success = outcome == FeedbackOutcome.DELIVERED
                 if(msg.closeAction){
                     channel.send(In.Ping)
                 }
@@ -277,7 +275,17 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
         // Same output as the joda-time toString() used before: always milliseconds, UTC.
         // Internal, like State, for the unit tests
-        internal val INSTANT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+        internal enum class FeedbackOutcome { DELIVERED, RETRY, REFUSED }
+
+        // Auth failures are retried: a token or certificate can be fixed on either side, and
+        // later feedback would fail the same way. Other client errors can't succeed if resent.
+        internal fun feedbackOutcome(httpCode: Int): FeedbackOutcome = when (httpCode) {
+            in 200..299 -> FeedbackOutcome.DELIVERED
+            in 500..599, 401, 403, 408, 409, 429 -> FeedbackOutcome.RETRY
+            else -> FeedbackOutcome.REFUSED
+        }
+
+        internal val INSTANT_FORMAT =DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
         internal val LOCAL_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").withZone(ZoneOffset.UTC)
 
         internal data class State(
