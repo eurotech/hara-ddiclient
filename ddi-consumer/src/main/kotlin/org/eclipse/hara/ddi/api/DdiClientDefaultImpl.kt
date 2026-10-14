@@ -139,12 +139,15 @@ class DdiClientDefaultImpl private constructor(private val ddiRestApi: DdiRestAp
                 if (!gatewayToken.isNullOrBlank()) {
                     authentications.add(Authentication.newInstance(Authentication.AuthenticationType.GATEWAY_TOKEN_AUTHENTICATION, gatewayToken!!))
                 }
-                httpBuilder.interceptors().add(0, HawkbitAuthenticationRequestInterceptor(authentications))
+                // A copy, so that the caller's builder never collects the interceptors of
+                // earlier clients (and their tokens) when it is reused
+                val clientBuilder = httpBuilder.build().newBuilder()
+                clientBuilder.interceptors().add(0, HawkbitAuthenticationRequestInterceptor(authentications))
                 val ddiRestApi = Retrofit.Builder()
                         .baseUrl(serverUrl)
                         .addConverterFactory(GsonConverterFactory.create())
                         .callbackExecutor(Executors.newSingleThreadExecutor())
-                        .client(httpBuilder.build())
+                        .client(clientBuilder.build())
                         .build()
                         .create(DdiRestApi::class.java)
                 return DdiClientDefaultImpl(ddiRestApi, tenant, controllerId)
