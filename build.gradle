@@ -370,5 +370,6 @@ dependencies{
     testImplementation libs.kotlin.coroutines.core
     testImplementation libs.okhttp
     testImplementation libs.okhttp.logging
+    testImplementation libs.okhttp.mockwebserver
     testImplementation libs.retrofit
 }

@@ -61,7 +61,7 @@ class FileDownloaderTest {
 
     @Test
     fun filesAreNamedAfterTheMd5() {
-        val toDownload = FileToDownload("image.bin", MD5, "http://server/image.bin", folder, 5)
+        val toDownload = FileToDownload("image.bin", MD5, listOf("http://server/image.bin"), folder, 5)
 
         assertEquals(toDownload.tempFile, File(folder, "$MD5.downloading"))
         assertEquals(toDownload.destination, File(folder, MD5))
@@ -70,7 +70,7 @@ class FileDownloaderTest {
 
     @Test
     fun onFileSavedMovesTheTempFileToTheDestination() {
-        val toDownload = FileToDownload("image.bin", MD5, "http://server/image.bin", folder, 5)
+        val toDownload = FileToDownload("image.bin", MD5, listOf("http://server/image.bin"), folder, 5)
         toDownload.tempFile.writeText("hello")
 
         assertTrue(toDownload.onFileSaved())
