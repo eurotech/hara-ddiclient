@@ -144,8 +144,8 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
     private suspend fun startDownloadProcedure(msg: DeploymentInfo) {
 
-        clean(msg.info.id)
         val md5s = md5OfFilesToBeDownloaded(msg.info)
+        clean(md5s)
 
         if (md5s.isNotEmpty()) {
 
@@ -328,15 +328,10 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
     private fun childName(md5: String) = "fileDownloader_for_$md5"
 
-    private fun clean(currentActionId: String) = runBlocking {
-        LOG.info("Removing artifacts of old updates (current action is $currentActionId)")
+    private fun clean(md5sToKeep: Set<String>) = runBlocking {
+        LOG.info("Removing artifacts not needed by the current update")
         withContext(Dispatchers.IO) {
-            pathResolver.baseDirectory()
-                    .listFiles()
-                    ?.filter { it != pathResolver.updateDir(currentActionId) }
-                    ?.forEach {
-                        LOG.info("Removing artifacts of update with action id ${it.name}")
-                        it.deleteRecursively() }
+            ArtifactsCleaner.clean(pathResolver.baseDirectory(), md5sToKeep)
         }
     }
 
