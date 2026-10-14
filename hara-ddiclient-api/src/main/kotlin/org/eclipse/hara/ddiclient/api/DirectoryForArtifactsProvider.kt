@@ -16,6 +16,11 @@ import java.io.File
  * Provides the directory used by the client
  * to store the artifacts downloaded during the
  * updates.
+ *
+ * Each client needs its own directory: before a download the client
+ * removes the artifacts that the current update doesn't need, including
+ * those of any other client using the same directory. Files not created
+ * by the client are left alone.
  */
 interface DirectoryForArtifactsProvider {
 
