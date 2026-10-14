@@ -20,23 +20,26 @@ class FilterInputStreamWithProgress(
     private val totalSize: Long
 ) : FilterInputStream(inputStream) {
 
-    private var alreadyRead: Int = 0
+    // Long for files above 2 GiB; volatile because the progress is read from a timer thread
+    @Volatile
+    private var alreadyRead: Long = 0
 
     @Throws(IOException::class)
     override fun read(): Int {
         return `in`.read().also {
-            alreadyRead += it
+            if (it >= 0) alreadyRead++
         }
     }
 
     @Throws(IOException::class)
     override fun read(var1: ByteArray, var2: Int, var3: Int): Int {
         return `in`.read(var1, var2, var3).also {
-            alreadyRead += it
+            if (it > 0) alreadyRead += it
         }
     }
 
     fun getProgress(): Double {
+        if (totalSize <= 0) return 1.0
         return min(alreadyRead.toDouble() / totalSize, 1.0)
     }
 }
