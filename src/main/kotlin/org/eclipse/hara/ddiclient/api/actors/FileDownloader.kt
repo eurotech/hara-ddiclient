@@ -16,6 +16,7 @@ import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest
 import org.eclipse.hara.ddiclient.api.MessageListener
 import org.eclipse.hara.ddiclient.api.inputstream.FilterInputStreamWithProgress
 import java.io.File
+import java.io.IOException
 import java.text.NumberFormat
 import java.util.Timer
 import java.util.concurrent.ArrayBlockingQueue
@@ -49,6 +50,11 @@ private constructor(
                 become(downloading(state))
                 if (fileToDownload.destination.exists()) {
                     channel.send(Message.FileDownloaded)
+                } else if (fileToDownload.urls.isEmpty()) {
+                    // Retrying can't help: the links come from the deployment
+                    val errors = listOf("No usable download link for ${fileToDownload.fileName}")
+                    parent!!.send(Message.Error(channel, fileToDownload.md5, errors))
+                    notificationManager.send(MessageListener.Message.Event.Error(errors))
                 } else {
                     notificationManager.send(MessageListener.Message.Event.StartDownloadFile(fileToDownload.fileName))
                     tryDownload(state)
@@ -119,13 +125,38 @@ private constructor(
         return format.format(this)
     }
 
+    // Tries the links in order; the attempt fails only if every link fails
     private suspend fun download(actionId: String) {
+        val failures = mutableListOf<Throwable>()
+        for (url in fileToDownload.urls) {
+            try {
+                download(url, actionId)
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LOG.warn("Failed to download file ${fileToDownload.fileName} from $url: $e")
+                failures += e
+            }
+        }
+        throw when (failures.size) {
+            1 -> failures.single()
+            else -> IOException(
+                failures.zip(fileToDownload.urls).joinToString("; ", "All download links failed: ") { (e, url) ->
+                    "$url: ${e.javaClass.simpleName}: ${e.message}"
+                },
+                failures.last()
+            ).apply { failures.dropLast(1).forEach(::addSuppressed) }
+        }
+    }
+
+    private suspend fun download(url: String, actionId: String) {
         val file = fileToDownload.tempFile
         if (file.exists()) {
             file.delete()
         }
 
-        val inputStream = FilterInputStreamWithProgress(client.downloadArtifact(fileToDownload.url), fileToDownload.size)
+        val inputStream = FilterInputStreamWithProgress(client.downloadArtifact(url), fileToDownload.size)
 
         val queue = ArrayBlockingQueue(10, true, (1..9).map { it.toDouble() / 10 })
 
@@ -250,7 +281,7 @@ private constructor(
         data class FileToDownload(
                 val fileName: String,
                 val md5: String,
-                val url: String,
+                val urls: List<String>,
                 val folder: File,
                 val size: Long
         ) {

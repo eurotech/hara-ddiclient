@@ -163,7 +163,8 @@ data class HaraClientContext(
     val softDeploymentPermitProvider: DeploymentPermitProvider,
     val messageListeners: List<MessageListener>,
     val downloadBehavior: DownloadBehavior,
-    val forceDeploymentPermitProvider: DeploymentPermitProvider
+    val forceDeploymentPermitProvider: DeploymentPermitProvider,
+    val serverUrl: String
 ) : AbstractCoroutineContextElement(HaraClientContext) {
     companion object Key : CoroutineContext.Key<HaraClientContext>
 }

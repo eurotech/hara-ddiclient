@@ -60,6 +60,7 @@ class HaraClientDefaultImpl : HaraClient {
                 messageListeners,
                 downloadBehavior,
                 forceDeploymentPermitProvider,
+                haraClientData.serverUrl,
             ),
             scope = scope
         ) { RootActor.of(it) }

@@ -48,6 +48,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
     private val registry = coroutineContext[HaraClientContext]!!.registry
     private val pathResolver = coroutineContext[HaraClientContext]!!.pathResolver
+    private val serverUrl = coroutineContext[HaraClientContext]!!.serverUrl
     private val notificationManager = coroutineContext[NMActor]!!.ref
     private val connectionManager = coroutineContext[CMActor]!!.ref
     private val softRequest: DeploymentPermitProvider = coroutineContext[HaraClientContext]!!.softDeploymentPermitProvider
@@ -112,7 +113,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         msg.info.deployment.chunks.flatMap { it.artifacts }
             .filter { md5s.contains(it.hashes.md5) }.forEach { at ->
                 val ftd = FileToDownload(at.filename, at.hashes.md5,
-                    at._links.download_http?.href ?: "" , wd, at.size)
+                    DownloadLinks.urlsOf(at, serverUrl), wd, at.size)
                 alreadyDownloaded[ftd.md5] = ftd.destination.exists() && (ftd.md5 == ftd.destination.md5() ||
                         (ftd.destinationMd5File.exists() && ftd.md5 == ftd.destinationMd5File.readText()))
             }
@@ -297,7 +298,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         }
         return dbr.deployment.chunks.flatMap { it.artifacts }.filter { md5s.contains(it.hashes.md5) }.map { at ->
             val md5 = at.hashes.md5
-            val ftd = FileToDownload(at.filename, md5, at._links.download_http?.href ?: "" , wd, at.size)
+            val ftd = FileToDownload(at.filename, md5, DownloadLinks.urlsOf(at, serverUrl), wd, at.size)
             val dm = actorOf(childName(md5)) {
                 FileDownloader.of(it, ftd, dbr.id)
             }
