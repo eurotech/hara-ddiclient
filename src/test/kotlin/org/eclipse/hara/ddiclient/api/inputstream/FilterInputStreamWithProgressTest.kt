@@ -53,6 +53,15 @@ class FilterInputStreamWithProgressTest {
     }
 
     @Test
+    fun aResumedDownloadCountsTheBytesDownloadedBefore() {
+        val stream = FilterInputStreamWithProgress(ByteArrayInputStream(ByteArray(2)), 8, 4)
+
+        stream.read(ByteArray(2), 0, 2)
+
+        assertEquals(stream.getProgress(), 0.75)
+    }
+
+    @Test
     fun anEmptyFileIsComplete() {
         val stream = FilterInputStreamWithProgress(ByteArrayInputStream(ByteArray(0)), 0)
 

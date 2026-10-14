@@ -99,6 +99,31 @@ class DdiClientDefaultImpl private constructor(private val ddiRestApi: DdiRestAp
         return ddiRestApi.downloadArtifact(url).byteStream()
     }
 
+    override suspend fun downloadArtifact(url: String, offset: Long): ArtifactStream {
+        LOG.debug("downloadArtifact({}, {})", url, offset)
+        if (offset <= 0) {
+            return ArtifactStream(downloadArtifact(url), 0)
+        }
+        val response = ddiRestApi.downloadArtifact(url, "bytes=$offset-")
+        val body = response.body()
+        return when {
+            body == null && response.code() != HTTP_RANGE_NOT_SATISFIABLE -> throw HttpException(response)
+
+            // The server ignored the range
+            body != null && response.code() != HttpURLConnection.HTTP_PARTIAL -> ArtifactStream(body.byteStream(), 0)
+
+            body != null && response.headers()[CONTENT_RANGE_HEADER].orEmpty().startsWith("bytes $offset-") ->
+                ArtifactStream(body.byteStream(), offset)
+
+            // The range doesn't fit the artifact (416) or isn't the one asked for
+            else -> {
+                LOG.warn("Can't resume {} from byte {} (HTTP {}), downloading it from the start", url, offset, response.code())
+                body?.close()
+                ArtifactStream(downloadArtifact(url), 0)
+            }
+        }
+    }
+
     private suspend fun <T> handleOnChangeResponse(response: Response<T>, etag: String,
                                                    resourceName: String, onChange: OnResourceChange<T>,
                                                    onNothingChange: suspend () -> Unit = {}) {
@@ -127,6 +152,8 @@ class DdiClientDefaultImpl private constructor(private val ddiRestApi: DdiRestAp
 
     companion object {
         const val ETAG_HEADER = "ETag"
+        const val CONTENT_RANGE_HEADER = "Content-Range"
+        const val HTTP_RANGE_NOT_SATISFIABLE = 416
 
         val LOG = LoggerFactory.getLogger(DdiClient::class.java)!!
 

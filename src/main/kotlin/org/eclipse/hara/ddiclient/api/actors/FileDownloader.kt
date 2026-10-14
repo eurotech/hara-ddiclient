@@ -16,6 +16,7 @@ import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest
 import org.eclipse.hara.ddiclient.api.MessageListener
 import org.eclipse.hara.ddiclient.api.inputstream.FilterInputStreamWithProgress
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.text.NumberFormat
 import java.util.Timer
@@ -152,11 +153,26 @@ private constructor(
 
     private suspend fun download(url: String, actionId: String) {
         val file = fileToDownload.tempFile
-        if (file.exists()) {
+        // A partial file left by an earlier attempt or run is resumed; one longer than the artifact can't be
+        val offset = if (file.length() <= fileToDownload.size) file.length() else 0L
+        if (offset > 0 && offset == fileToDownload.size) {
+            LOG.info("${fileToDownload.fileName} already fully downloaded, checking it")
+            return
+        }
+        if (offset == 0L && file.exists()) {
             file.delete()
         }
 
-        val inputStream = FilterInputStreamWithProgress(client.downloadArtifact(url), fileToDownload.size)
+        val artifact = client.downloadArtifact(url, offset)
+        require(artifact.offset == 0L || artifact.offset == offset) {
+            "The download of ${fileToDownload.fileName} starts at byte ${artifact.offset}, expected $offset or 0"
+        }
+        if (offset > 0) {
+            LOG.info(if (artifact.offset > 0) "Resuming the download of ${fileToDownload.fileName} from byte $offset"
+                else "The server sent ${fileToDownload.fileName} from the start: downloading it again")
+        }
+
+        val inputStream = FilterInputStreamWithProgress(artifact.stream, fileToDownload.size, artifact.offset)
 
         val queue = ArrayBlockingQueue(10, true, (1..9).map { it.toDouble() / 10 })
 
@@ -164,7 +180,7 @@ private constructor(
 
         runCatching {
             inputStream.use { inputStream ->
-                file.outputStream().use { outputStream ->
+                FileOutputStream(file, artifact.offset > 0).use { outputStream ->
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     var progressBytes = 0L
                     var bytes = inputStream.read(buffer)

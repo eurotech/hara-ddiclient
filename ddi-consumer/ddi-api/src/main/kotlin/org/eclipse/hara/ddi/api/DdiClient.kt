@@ -43,4 +43,17 @@ interface DdiClient {
     suspend fun putConfigData(data: ConfigurationDataRequest, onSuccessConfigData: () -> Unit)
 
     suspend fun downloadArtifact(url: String): InputStream
+
+    /**
+     * Downloads the artifact at [url] from byte [offset] on, to resume a partial download.
+     * The server may send the whole artifact instead: [ArtifactStream.offset] says where the stream starts,
+     * either [offset] or 0. This default implementation always sends the whole artifact.
+     */
+    suspend fun downloadArtifact(url: String, offset: Long): ArtifactStream =
+        ArtifactStream(downloadArtifact(url), 0)
 }
+
+/**
+ * An artifact's content from byte [offset] on.
+ */
+class ArtifactStream(val stream: InputStream, val offset: Long)

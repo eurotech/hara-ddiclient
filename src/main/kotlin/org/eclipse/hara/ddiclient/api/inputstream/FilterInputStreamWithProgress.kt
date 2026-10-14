@@ -15,14 +15,19 @@ import java.io.IOException
 import java.io.InputStream
 import kotlin.math.min
 
-class FilterInputStreamWithProgress(
+/**
+ * Counts the bytes read from [inputStream] towards [totalSize], starting from [alreadyRead]
+ * (the bytes downloaded before, when a download is resumed).
+ */
+class FilterInputStreamWithProgress @JvmOverloads constructor(
     inputStream: InputStream,
-    private val totalSize: Long
+    private val totalSize: Long,
+    alreadyRead: Long = 0
 ) : FilterInputStream(inputStream) {
 
     // Long for files above 2 GiB; volatile because the progress is read from a timer thread
     @Volatile
-    private var alreadyRead: Long = 0
+    private var alreadyRead: Long = alreadyRead
 
     @Throws(IOException::class)
     override fun read(): Int {
