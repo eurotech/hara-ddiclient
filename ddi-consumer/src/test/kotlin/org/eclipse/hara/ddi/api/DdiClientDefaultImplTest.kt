@@ -209,9 +209,25 @@ class DdiClientDefaultImplTest {
         assertEquals(server.next().getHeader("Authorization"), "TargetToken tt")
     }
 
-    private fun client(gatewayToken: String? = null, targetToken: String? = null) = DdiClientDefaultImpl.of(
+    @Test
+    fun aClientRecreatedWithTheSameBuilderUsesOnlyItsOwnToken() = runBlocking {
+        val builder = OkHttpClient.Builder()
+        client(targetToken = "old", builder = builder)
+        server.enqueue(json(CONTROLLER_BASE))
+
+        client(targetToken = "new", builder = builder).getControllerActions()
+
+        assertEquals(server.next().getHeader("Authorization"), "TargetToken new")
+        assertTrue(builder.interceptors().isEmpty())
+    }
+
+    private fun client(
+        gatewayToken: String? = null,
+        targetToken: String? = null,
+        builder: OkHttpClient.Builder = OkHttpClient.Builder()
+    ) = DdiClientDefaultImpl.of(
         HaraClientData(TENANT, CONTROLLER_ID, server.url("/").toString(), gatewayToken, targetToken),
-        OkHttpClient.Builder())
+        builder)
 
     private fun configData() = ConfigurationDataRequest.of(mapOf("k" to "v"), ConfigurationDataRequest.Mode.merge)
 
