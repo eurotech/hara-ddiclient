@@ -47,18 +47,52 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
                 become(downloadingReceive(state.copy(deplBaseResp = msg.info)))
                 child("downloadManager")!!.send(DeploymentInfo(msg.info))
             }
-            // The server closed a download-only action when it got the "downloaded" feedback
-            is Message.DownloadFinished -> if (state.deplBaseResp!!.isDownloadOnly) {
-                LOG.info("Download-only action ${state.deplBaseResp.id}: the files are downloaded, nothing to install")
-                notificationManager.send(MessageListener.Message.Event.NoUpdate)
-                parent!!.send(Message.UpdateFinished)
-            } else {
-                become(updatingReceive())
-                child("updateManager")!!.send(DeploymentInfo(state.deplBaseResp))
+            is Message.DownloadFinished -> {
+                afterDownload(state.deplBaseResp!!)
             }
             is Message.DownloadFailed -> {
                 LOG.error("download failed")
                 parent!!.send(msg)
+            }
+            is DeploymentCancelInfo -> {
+                stopUpdateAndNotify(msg)
+            }
+            is CancelForced -> {
+                stopUpdate()
+            }
+            else -> handleMsgDefault(msg)
+        }
+    }
+
+    private suspend fun afterDownload(info: DeploymentBaseResponse) {
+        when {
+            // The server closed a download-only action when it got the "downloaded" feedback
+            info.isDownloadOnly -> {
+                LOG.info("Download-only action ${info.id}: the files are downloaded, nothing to install")
+                notificationManager.send(MessageListener.Message.Event.NoUpdate)
+                parent!!.send(Message.UpdateFinished)
+            }
+
+            info.isOutsideMaintenanceWindow -> {
+                LOG.info("Action ${info.id}: the files are downloaded, waiting for the maintenance window")
+                notificationManager.send(MessageListener.Message.State.WaitingMaintenanceWindow)
+                become(waitingMaintenanceWindowReceive())
+            }
+
+            else -> {
+                become(updatingReceive())
+                child("updateManager")!!.send(DeploymentInfo(info))
+            }
+        }
+    }
+
+    // The server tells the window is open by sending the deployment again, with an update to do
+    private fun waitingMaintenanceWindowReceive(): Receive = { msg ->
+        when (msg) {
+            is DeploymentInfo -> {
+                if (!msg.info.isOutsideMaintenanceWindow) {
+                    afterDownload(msg.info)
+                }
             }
             is DeploymentCancelInfo -> {
                 stopUpdateAndNotify(msg)
@@ -130,10 +164,14 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
         data class State(val deplBaseResp: DeploymentBaseResponse? = null)
 
-        // hawkBit also skips the update outside a maintenance window, but then the action stays open
+        // hawkBit skips the update of a download-only action, and of any action outside its maintenance window
         private val DeploymentBaseResponse.isDownloadOnly: Boolean
             get() = deployment.update == DeploymentBaseResponse.Deployment.ProvisioningType.skip &&
                 deployment.maintenanceWindow != DeploymentBaseResponse.Deployment.MaintenanceWindow.unavailable
+
+        private val DeploymentBaseResponse.isOutsideMaintenanceWindow: Boolean
+            get() = deployment.update == DeploymentBaseResponse.Deployment.ProvisioningType.skip &&
+                deployment.maintenanceWindow == DeploymentBaseResponse.Deployment.MaintenanceWindow.unavailable
 
         sealed class Message {
             object DownloadFinished : Message()
