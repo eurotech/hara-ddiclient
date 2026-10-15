@@ -216,7 +216,7 @@ private constructor(
                 val limit = queue.peek() ?: 1.0
                 if (progress > limit) {
                     feedback(actionId,
-                            DeploymentFeedbackRequest.Status.Execution.proceeding,
+                            DeploymentFeedbackRequest.Status.Execution.download,
                             DeploymentFeedbackRequest.Status.Result.Progress(0, 0),
                             DeploymentFeedbackRequest.Status.Result.Finished.none,
                             "Downloading file named ${fileToDownload.fileName} " +

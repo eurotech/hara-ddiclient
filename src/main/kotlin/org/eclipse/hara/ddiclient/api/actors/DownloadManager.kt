@@ -160,7 +160,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
             val dms = createDownloadsManagers(msg.info, md5s)
             become(downloadingReceive(State(msg.info, dms)))
-            feedback(msg.info.id, proceeding, Progress(dms.size, 0), none,
+            feedback(msg.info.id, Execution.download, Progress(dms.size, 0), none,
                 "Start downloading ${dms.size} files")
             dms.values.forEach {
                 it.downloader.send(FileDownloader.Companion.Message.Start)
@@ -216,7 +216,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
             }
 
             is FileDownloader.Companion.Message.Info -> {
-                feedback(state.deplBaseResp.id, proceeding, state.getProgress(), none, msg.message)
+                feedback(state.deplBaseResp.id, Execution.download, state.getProgress(), none, msg.message)
                 LOG.info(msg.toString())
             }
 
@@ -238,7 +238,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         val progress = newState.getProgress()
         when {
             downloads.any { it.state.status == Status.RUNNING } -> {
-                feedback(state.deplBaseResp.id, proceeding, progress, none, message)
+                feedback(state.deplBaseResp.id, Execution.download, progress, none, message)
                 become(downloadingReceive(newState))
             }
             downloads.any { it.state.status == Status.ERROR } -> {
@@ -249,7 +249,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
                 parent!!.send(DownloadFailed(listOf(message)))
             }
             else -> {
-                feedback(state.deplBaseResp.id, proceeding, progress, none, message)
+                feedback(state.deplBaseResp.id, Execution.download, progress, none, message)
                 onDownloadSucceeded(state.deplBaseResp.id, progress, none, "Successfully downloaded all files", newState)
             }
         }
@@ -270,7 +270,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
     }
 
     private suspend fun onDownloadSucceeded(id: String, progress: Progress, finished: Finished, message: String, newState: State?){
-        feedback(id, proceeding, progress, finished, message)
+        feedback(id, Execution.downloaded, progress, finished, message)
         newState?.downloads?.values?.forEach { it.downloader.close() }
         notificationManager.send(MessageListener.Message.Event.AllFilesDownloaded)
         parent!!.send(DownloadFinished)

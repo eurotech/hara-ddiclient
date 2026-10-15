@@ -81,7 +81,9 @@ data class DeploymentFeedbackRequest(
             canceled,
             scheduled,
             rejected,
-            resumed }
+            resumed,
+            download,
+            downloaded }
         data class Result(
                 val finished: Finished,
                 val progress: Progress?
