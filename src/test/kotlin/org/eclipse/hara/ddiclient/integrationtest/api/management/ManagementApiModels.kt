@@ -15,7 +15,7 @@ data class ActionStatus(val content: Set<ContentEntry>, val total: Int = content
                         val size: Int = content.size) {
     data class ContentEntry(val type: Type, val messages: List<String?>) {
         enum class Type {
-            finished, error, warning, pending, running, canceled, retrieved, canceling, download
+            finished, error, warning, pending, running, canceled, retrieved, canceling, download, downloaded
         }
     }
 }

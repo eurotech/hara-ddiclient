@@ -15,8 +15,6 @@ import org.eclipse.hara.ddiclient.integrationtest.api.management.ActionStatus
 import org.eclipse.hara.ddiclient.integrationtest.api.management.AssignDistributionType
 import org.eclipse.hara.ddiclient.integrationtest.api.management.HawkbitAssignDistributionBody
 import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils
-import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils.endMessagesOnSuccessUpdate
-import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils.messagesOnSoftUpdateAuthorization
 import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils.messagesOnSuccessfullyDownloadDistribution
 import org.testng.annotations.BeforeClass
 import org.testng.annotations.Test
@@ -75,10 +73,9 @@ class DeploymentDownloadOnlyTest : AbstractDeploymentTest() {
         )
     }
 
+    // hawkBit closes a download-only action on the "downloaded" feedback: nothing is installed
     private val expectedActionsAfterDownloadOnlyDeployment : ActionStatus =
         ActionStatus(setOf(
-            *endMessagesOnSuccessUpdate,
-            *messagesOnSoftUpdateAuthorization,
             *messagesOnSuccessfullyDownloadDistribution(
                 TestUtils.md5OfFileNamed("test1"), TARGET_ID,
                 "1", "test_1"),

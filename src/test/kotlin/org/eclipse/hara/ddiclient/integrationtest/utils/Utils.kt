@@ -168,11 +168,11 @@ object TestUtils {
         md5: String, targetId: String, softwareModuleId: String,
         fileName: String) = arrayOf(
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.downloaded,
             listOf("Successfully downloaded all files")
         ),
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.download,
             listOf(
                 "Successfully downloaded file with md5 $md5"
             )
@@ -183,7 +183,7 @@ object TestUtils {
                 "Update Server: Target downloads /$tenantName/controller/v1/$targetId/softwaremodules/$softwareModuleId/artifacts/$fileName")
         ),
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.download,
             listOf("Start downloading 1 files")
         )
     )

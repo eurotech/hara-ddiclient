@@ -264,11 +264,11 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
 
     private fun messagesOnSuccessfullyDownloadOsWithAppDistribution(target: String) = arrayOf(
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.downloaded,
             listOf("Successfully downloaded all files")
         ),
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.download,
             listOf(
                 "Successfully downloaded file with md5 ${
                     md5OfFileNamed(
@@ -278,7 +278,7 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
             )
         ),
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.download,
             listOf(
                 "Successfully downloaded file with md5 ${
                     md5OfFileNamed(
@@ -288,7 +288,7 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
             )
         ),
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.download,
             listOf(
                 "Successfully downloaded file with md5 ${
                     md5OfFileNamed(
@@ -298,7 +298,7 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
             )
         ),
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.download,
             listOf(
                 "Successfully downloaded file with md5 ${
                     md5OfFileNamed(
@@ -324,7 +324,7 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
             listOf("Update Server: Target downloads /${TestUtils.tenantName}/controller/v1/$target/softwaremodules/3/artifacts/test_4")
         ),
         ActionStatus.ContentEntry(
-            ActionStatus.ContentEntry.Type.running,
+            ActionStatus.ContentEntry.Type.download,
             listOf("Start downloading 4 files")
         )
     )

@@ -48,7 +48,9 @@ abstract class AbstractDeploymentTest : AbstractTest() {
             "Message received: $message".internalLog()
             when (message) {
 
+                // NoUpdate: a download-only action ends after the download
                 is MessageListener.Message.Event.UpdateFinished,
+                MessageListener.Message.Event.NoUpdate,
                 MessageListener.Message.State.CancellingUpdate -> {
                     testScope.launch {
                         try {

@@ -47,9 +47,14 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
                 become(downloadingReceive(state.copy(deplBaseResp = msg.info)))
                 child("downloadManager")!!.send(DeploymentInfo(msg.info))
             }
-            is Message.DownloadFinished -> {
+            // The server closed a download-only action when it got the "downloaded" feedback
+            is Message.DownloadFinished -> if (state.deplBaseResp!!.isDownloadOnly) {
+                LOG.info("Download-only action ${state.deplBaseResp.id}: the files are downloaded, nothing to install")
+                notificationManager.send(MessageListener.Message.Event.NoUpdate)
+                parent!!.send(Message.UpdateFinished)
+            } else {
                 become(updatingReceive())
-                child("updateManager")!!.send(DeploymentInfo(state.deplBaseResp!!))
+                child("updateManager")!!.send(DeploymentInfo(state.deplBaseResp))
             }
             is Message.DownloadFailed -> {
                 LOG.error("download failed")
@@ -124,6 +129,11 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         fun of(scope: ActorScope) = DeploymentManager(scope)
 
         data class State(val deplBaseResp: DeploymentBaseResponse? = null)
+
+        // hawkBit also skips the update outside a maintenance window, but then the action stays open
+        private val DeploymentBaseResponse.isDownloadOnly: Boolean
+            get() = deployment.update == DeploymentBaseResponse.Deployment.ProvisioningType.skip &&
+                deployment.maintenanceWindow != DeploymentBaseResponse.Deployment.MaintenanceWindow.unavailable
 
         sealed class Message {
             object DownloadFinished : Message()
