@@ -91,6 +91,11 @@ interface MessageListener {
             }
 
             /**
+             * The files are downloaded and the client is waiting for the maintenance window to start updating
+             */
+            object WaitingMaintenanceWindow : State("Waiting for the maintenance window to start update")
+
+            /**
              * Client is waiting for new requests from server
              */
             object Idle : State("Client is waiting for new requests from server")
