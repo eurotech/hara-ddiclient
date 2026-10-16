@@ -21,9 +21,12 @@ import java.net.URL
  * the Update Server.
  * @property serverUrl URL of the Update Server.
  * @property gatewayToken used by the client to authenticate itself
- * on the Update Server. It is different for each tenant.
+ * on the Update Server. It is different for each tenant. Null or blank: not used.
  * @property targetToken used by the client to authenticate itself
- * on the Update Server. It is different for each device.
+ * on the Update Server. It is different for each device. Null or blank: not used.
+ * Without any token the client sends no Authorization header: the transport
+ * authenticates the device, e.g. a client certificate (mTLS) set on the
+ * `httpBuilder` passed to [HaraClient.init].
  * @property artifactHashes hash algorithms accepted to check the downloaded artifacts,
  * in order of preference. For each artifact the client uses the first one the server sends
  * a hash for; an artifact without any of them can't be downloaded.
@@ -51,8 +54,6 @@ data class HaraClientData @JvmOverloads constructor(
         notEmpty(controllerId, "controllerId")
         notEmpty(serverUrl, "serverUrl")
         validUrl(serverUrl, "serverUrl")
-        check(!(gatewayToken?.isEmpty() == true && targetToken?.isEmpty() == true)) {
-            "gatewayToken and targetToken cannot both be empty" }
     }
 
     private fun notEmpty(item: String, itemName: String) {

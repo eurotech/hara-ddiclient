@@ -371,5 +371,6 @@ dependencies{
     testImplementation libs.okhttp
     testImplementation libs.okhttp.logging
     testImplementation libs.okhttp.mockwebserver
+    testImplementation libs.okhttp.tls
     testImplementation libs.retrofit
 }

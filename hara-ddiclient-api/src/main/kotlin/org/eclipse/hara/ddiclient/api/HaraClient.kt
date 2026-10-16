@@ -35,7 +35,9 @@ interface HaraClient {
      * @param messageListeners message listeners
      * @param updaters list of updaters. Different updaters are responsible to install
      * different types of software module. See [Updater]
-     * @param httpBuilder http builder
+     * @param httpBuilder http builder. Its settings, TLS included (e.g. a client
+     * certificate for mTLS), apply to every request: polls, feedback and downloads.
+     * The client works on a copy, the builder itself is not changed.
      * @param scope coroutine scope used for launching actors
      */
     fun init(
