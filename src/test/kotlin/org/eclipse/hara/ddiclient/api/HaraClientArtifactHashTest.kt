@@ -80,6 +80,29 @@ class HaraClientArtifactHashTest {
         assertEquals(appliedFiles.get(5, TimeUnit.SECONDS), listOf(File(artifactsDir, MD5).absolutePath))
     }
 
+    // sha1 and md5 are optional too: a server may send only the hash the client checks
+    @Test
+    fun aSha256AloneIsEnough() {
+        startClient(hashes = """{"sha256":"$SHA256"}""")
+
+        closed.get(20, TimeUnit.SECONDS)
+        assertTrue(feedback.contains("download" to "Successfully downloaded file with sha256 $SHA256"), feedback.toString())
+        assertEquals(appliedFiles.get(5, TimeUnit.SECONDS), listOf(File(artifactsDir, SHA256).absolutePath))
+    }
+
+    @Test
+    fun anArtifactWithoutHashesFailsTheAction() {
+        startClient(hashes = "{}")
+
+        closed.get(20, TimeUnit.SECONDS)
+        val (execution, detail) = feedback.single()
+        assertEquals(execution, "closed")
+        assertTrue(detail.startsWith(
+            "Failed to select the files to download: The server sent none of the accepted hashes"), detail)
+        assertFalse(artifactRequested)
+        assertFalse(appliedFiles.isDone)
+    }
+
     @Test
     fun aWrongSha256FailsTheDownloadEvenIfTheMd5Matches() {
         startClient(hashes = """{"sha1":"$SHA1","md5":"$MD5","sha256":"$WRONG_SHA256"}""")
