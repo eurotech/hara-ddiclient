@@ -77,7 +77,7 @@ class HaraClientDownloadStatusTest {
 
         closed.get(20, TimeUnit.SECONDS)
         assertEquals(feedback.take(2), listOf(
-            "download" to "$CONTENT_MD5 already downloaded",
+            "download" to "md5 $CONTENT_MD5 already downloaded",
             "downloaded" to "Successfully downloaded all files"
         ), feedback.toString())
     }

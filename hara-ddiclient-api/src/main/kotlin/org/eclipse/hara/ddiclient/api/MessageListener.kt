@@ -41,9 +41,9 @@ interface MessageListener {
                 /**
                  * @property name
                  * @property size in bytes
-                 * @property md5
+                 * @property hashes
                  */
-                data class Artifact(val name: String, val size: Long, val md5: String)
+                data class Artifact(val name: String, val size: Long, val hashes: Updater.Hashes)
             }
 
             /**

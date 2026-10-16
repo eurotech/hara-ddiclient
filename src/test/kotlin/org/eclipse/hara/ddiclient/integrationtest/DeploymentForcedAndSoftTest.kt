@@ -16,7 +16,7 @@ import org.eclipse.hara.ddiclient.integrationtest.api.management.AssignDistribut
 import org.eclipse.hara.ddiclient.integrationtest.api.management.HawkbitAssignDistributionBody
 import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils
 import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils.endMessagesOnSuccessUpdate
-import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils.md5OfFileNamed
+import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils.sha256OfFileNamed
 import org.eclipse.hara.ddiclient.integrationtest.utils.TestUtils.pathResolver
 import org.eclipse.hara.ddiclient.integrationtest.utils.logCurrentFunctionName
 import org.testng.annotations.BeforeClass
@@ -119,7 +119,7 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
             setOf(
                 *endMessagesOnSuccessUpdate,
                 *TestUtils.messagesOnSuccessfullyDownloadDistribution(
-                    md5OfFileNamed("test1"), cancellingTestTargetId,
+                    sha256OfFileNamed("test1"), cancellingTestTargetId,
                     "1", "test_1"),
                 *TestUtils.firstActionsOnTargetDeployment
             )
@@ -151,7 +151,7 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
                 setOf(
                     *endMessagesOnSuccessUpdate,
                     *TestUtils.messagesOnSuccessfullyDownloadDistribution(
-                        md5OfFileNamed("test4"), osOnlyTestTargetId,
+                        sha256OfFileNamed("test4"), osOnlyTestTargetId,
                         "3", "test_4"),
                     *TestUtils.firstActionsOnTargetDeployment
                 )
@@ -270,8 +270,8 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
         ActionStatus.ContentEntry(
             ActionStatus.ContentEntry.Type.download,
             listOf(
-                "Successfully downloaded file with md5 ${
-                    md5OfFileNamed(
+                "Successfully downloaded file with sha256 ${
+                    sha256OfFileNamed(
                         "test1"
                     )
                 }"
@@ -280,8 +280,8 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
         ActionStatus.ContentEntry(
             ActionStatus.ContentEntry.Type.download,
             listOf(
-                "Successfully downloaded file with md5 ${
-                    md5OfFileNamed(
+                "Successfully downloaded file with sha256 ${
+                    sha256OfFileNamed(
                         "test2"
                     )
                 }"
@@ -290,8 +290,8 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
         ActionStatus.ContentEntry(
             ActionStatus.ContentEntry.Type.download,
             listOf(
-                "Successfully downloaded file with md5 ${
-                    md5OfFileNamed(
+                "Successfully downloaded file with sha256 ${
+                    sha256OfFileNamed(
                         "test3"
                     )
                 }"
@@ -300,8 +300,8 @@ class DeploymentForcedAndSoftTest : AbstractDeploymentTest() {
         ActionStatus.ContentEntry(
             ActionStatus.ContentEntry.Type.download,
             listOf(
-                "Successfully downloaded file with md5 ${
-                    md5OfFileNamed(
+                "Successfully downloaded file with sha256 ${
+                    sha256OfFileNamed(
                         "test4"
                     )
                 }"

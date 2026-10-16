@@ -77,35 +77,40 @@ object TestUtils {
         }
     }
 
-    private val serverFilesMappedToLocantionAndMd5 = mapOf(
-        "test1" to Pair(
+    private val serverFilesMappedToLocationAndHashes = mapOf(
+        "test1" to Triple(
             "docker/test/artifactrepo/$tenantName/4b/5a/b54e43082887d1e7cdb10b7a21fe4a1e56b44b5a",
-            "2490a3d39b0004e4afeb517ef0ddbe2d"),
-        "test2" to Pair(
+            "2490a3d39b0004e4afeb517ef0ddbe2d",
+            "3cd203ac11340842055a6de561c9d69ca4493e912bd4c3c440c80711e16d5aee"),
+        "test2" to Triple(
             "docker/test/artifactrepo/$tenantName/b6/1e/a096a9d3cb96fa4cf6c63bd736a84cb7a7e4b61e",
-            "b0b3b0dbf5330e3179c6ae3e0ac524c9"),
-        "test3" to Pair(
+            "b0b3b0dbf5330e3179c6ae3e0ac524c9",
+            "ef691f74bb2e7cb7e9b48b4d57e9e62fa535a0a6ea0100676c4fc492cca8b6d0"),
+        "test3" to Triple(
             "docker/test/artifactrepo/$tenantName/bf/94/cde0c01b26634f869bb876326e4fbe969792bf94",
-            "2244fbd6bee5dcbe312e387c062ce6e6"),
-        "test4" to Pair(
+            "2244fbd6bee5dcbe312e387c062ce6e6",
+            "f332dc0b25c681863f10100f0fedd2b2e6ddcc9abe360d6d780d73b7322c9aa5"),
+        "test4" to Triple(
             "docker/test/artifactrepo/$tenantName/dd/0a/07fa4d03ac54d0b2a52f23d8e878c96db7aadd0a",
-            "94424c5ce3f8c57a5b26d02f37dc06fc"),
+            "94424c5ce3f8c57a5b26d02f37dc06fc",
+            "01d5223e3d20418f2dd212708573f188aec85737303445c021930490de3fc4de"),
     )
 
-    val md5OfFileNamed: (String) -> String = { key -> serverFilesMappedToLocantionAndMd5.getValue(key).second }
-    val locationOfFileNamed: (String) -> String = { key -> serverFilesMappedToLocantionAndMd5.getValue(key).first }
+    val md5OfFileNamed: (String) -> String = { key -> serverFilesMappedToLocationAndHashes.getValue(key).second }
+    val sha256OfFileNamed: (String) -> String = { key -> serverFilesMappedToLocationAndHashes.getValue(key).third }
+    val locationOfFileNamed: (String) -> String = { key -> serverFilesMappedToLocationAndHashes.getValue(key).first }
 
     val test1Artifact = Updater.SwModule.Artifact("test1", Updater.Hashes("",
-        md5OfFileNamed("test1")
+        md5OfFileNamed("test1"), sha256OfFileNamed("test1")
     ), 0)
     val test2Artifact = Updater.SwModule.Artifact("test2", Updater.Hashes("",
-        md5OfFileNamed("test2")
+        md5OfFileNamed("test2"), sha256OfFileNamed("test2")
     ), 0)
     val test3Artifact = Updater.SwModule.Artifact("test3", Updater.Hashes("",
-        md5OfFileNamed("test3")
+        md5OfFileNamed("test3"), sha256OfFileNamed("test3")
     ), 0)
     val test4Artifact = Updater.SwModule.Artifact("test4", Updater.Hashes("",
-        md5OfFileNamed("test4")
+        md5OfFileNamed("test4"), sha256OfFileNamed("test4")
     ), 0)
 
     val endMessagesOnSuccessUpdate = arrayOf(
@@ -165,7 +170,7 @@ object TestUtils {
     )
 
     fun messagesOnSuccessfullyDownloadDistribution(
-        md5: String, targetId: String, softwareModuleId: String,
+        sha256: String, targetId: String, softwareModuleId: String,
         fileName: String) = arrayOf(
         ActionStatus.ContentEntry(
             ActionStatus.ContentEntry.Type.downloaded,
@@ -174,7 +179,7 @@ object TestUtils {
         ActionStatus.ContentEntry(
             ActionStatus.ContentEntry.Type.download,
             listOf(
-                "Successfully downloaded file with md5 $md5"
+                "Successfully downloaded file with sha256 $sha256"
             )
         ),
         ActionStatus.ContentEntry(

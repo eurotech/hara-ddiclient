@@ -23,6 +23,8 @@ import java.util.Timer
 import java.util.concurrent.ArrayBlockingQueue
 import kotlin.concurrent.fixedRateTimer
 import org.eclipse.hara.ddiclient.api.DownloadBehavior
+import org.eclipse.hara.ddiclient.api.ArtifactHash
+import org.eclipse.hara.ddiclient.api.HashAlgorithm
 import java.lang.StringBuilder
 import java.security.DigestInputStream
 import java.security.MessageDigest
@@ -54,7 +56,7 @@ private constructor(
                 } else if (fileToDownload.urls.isEmpty()) {
                     // Retrying can't help: the links come from the deployment
                     val errors = listOf("No usable download link for ${fileToDownload.fileName}")
-                    parent!!.send(Message.Error(channel, fileToDownload.md5, errors))
+                    parent!!.send(Message.Error(channel, fileToDownload.hash, errors))
                     notificationManager.send(MessageListener.Message.Event.Error(errors))
                 } else {
                     notificationManager.send(MessageListener.Message.Event.StartDownloadFile(fileToDownload.fileName))
@@ -70,17 +72,17 @@ private constructor(
 
         when (msg) {
 
-            is Message.FileDownloaded -> checkMd5OfDownloadedFile()
+            is Message.FileDownloaded -> checkHashOfDownloadedFile()
 
             is Message.FileChecked -> {
-                parent!!.send(Message.Success(channel, fileToDownload.md5))
+                parent!!.send(Message.Success(channel, fileToDownload.hash))
                 notificationManager.send(MessageListener.Message.Event.FileDownloaded(fileToDownload.fileName))
             }
 
             is Message.TrialExhausted -> {
                 val errors = mutableListOf<String>()
                 errors.add(0, "Exhausted trials of downloading (${fileToDownload.fileName}) after ${state.currentAttempt} attempts!")
-                parent!!.send(Message.Error(channel, fileToDownload.md5, errors))
+                parent!!.send(Message.Error(channel, fileToDownload.hash, errors))
                 notificationManager.send(MessageListener.Message.Event.Error(errors))
             }
 
@@ -96,7 +98,7 @@ private constructor(
 
     private suspend fun tryDownload(state: State, error:Throwable? = null) {
 
-        when(val tryDownload = downloadBehavior.onAttempt(state.currentAttempt, "${state.actionId}-${fileToDownload.md5}", error)){
+        when(val tryDownload = downloadBehavior.onAttempt(state.currentAttempt, "${state.actionId}-${fileToDownload.hash.value}", error)){
 
             is DownloadBehavior.Try.Stop ->  channel.send(Message.TrialExhausted)
 
@@ -104,7 +106,7 @@ private constructor(
                 downloadJob = downloadScope.launch {
                     if(error != null){
                         val errorMessage = "Retry download of ${fileToDownload.fileName} due to: $error. The download will start in ${tryDownload.seconds.toDuration(DurationUnit.SECONDS)}."
-                        parent!!.send(Message.Info(channel, fileToDownload.md5, errorMessage))
+                        parent!!.send(Message.Info(channel, fileToDownload.hash, errorMessage))
                         notificationManager.send(MessageListener.Message.Event.Error(listOf(errorMessage)))
                     }
                     delay(tryDownload.seconds * 1000)
@@ -235,32 +237,32 @@ private constructor(
         connectionManager.send(ConnectionManager.Companion.Message.In.DeploymentFeedback(deplFdbkReq))
     }
 
-    private suspend fun checkMd5OfDownloadedFile() {
+    private suspend fun checkHashOfDownloadedFile() {
         launch {
             var fileAlreadyDownloaded = false
             val file = if(fileToDownload.destination.exists()) {
-                LOG.info("${fileToDownload.fileName} already downloaded. Checking md5...")
+                LOG.info("${fileToDownload.fileName} already downloaded. Checking ${fileToDownload.hash.algorithm}...")
                 fileAlreadyDownloaded = true
                 fileToDownload.destination
             } else {
                 fileToDownload.tempFile
             }
 
-            val md5 = file.md5()
-            val md5CheckResult = md5 == fileToDownload.md5
+            val hash = file.digest(fileToDownload.hash.algorithm)
+            val hashCheckResult = hash == fileToDownload.hash.value
             when {
 
-                fileAlreadyDownloaded && md5CheckResult -> {
-                    parent!!.send(Message.AlreadyDownloaded(channel, fileToDownload.md5))
+                fileAlreadyDownloaded && hashCheckResult -> {
+                    parent!!.send(Message.AlreadyDownloaded(channel, fileToDownload.hash))
                 }
 
-                !fileAlreadyDownloaded && md5CheckResult -> {
+                !fileAlreadyDownloaded && hashCheckResult -> {
                     fileToDownload.onFileSaved()
-                    fileToDownload.destinationMd5File.writeText(md5)
+                    fileToDownload.destinationHashFile.writeText(hash)
                     channel.send(Message.FileChecked)
                 }
 
-                file.delete() -> channel.send(Message.RetryDownload("Downloaded file (${fileToDownload.fileName}) has wrong md5 sum ($md5)"))
+                file.delete() -> channel.send(Message.RetryDownload("Downloaded file (${fileToDownload.fileName}) has wrong ${fileToDownload.hash.algorithm} hash ($hash)"))
 
                 else -> channel.send(Message.RetryDownload("Can't remove file named ${file.name}"))
             }
@@ -296,14 +298,15 @@ private constructor(
 
         data class FileToDownload(
                 val fileName: String,
-                val md5: String,
+                val hash: ArtifactHash,
                 val urls: List<String>,
                 val folder: File,
                 val size: Long
         ) {
-            val tempFile = File(folder, "$md5.$DOWNLOADING_EXTENSION")
-            val destination = File(folder, md5)
-            val destinationMd5File = File(folder, "$md5.md5")
+            val tempFile = File(folder, "${hash.value}.$DOWNLOADING_EXTENSION")
+            val destination = File(folder, hash.value)
+            // Marks the file as checked; named after the algorithm, so it's never read with another one
+            val destinationHashFile = File(folder, "${hash.value}.${hashFileExtension(hash.algorithm)}")
             fun onFileSaved() = tempFile.renameTo(destination)
         }
 
@@ -322,14 +325,16 @@ private constructor(
             data class RetryDownload(val message: String, val cause: Throwable? = null) : Message()
             object TrialExhausted : Message()
 
-            data class Success(val sender: ActorRef, val md5: String) : Message()
-            data class AlreadyDownloaded(val sender: ActorRef, val md5: String) : Message()
-            data class Info(val sender: ActorRef, val md5: String, val message: String) : Message()
-            data class Error(val sender: ActorRef, val md5: String, val message: List<String> = emptyList()) : Message()
+            data class Success(val sender: ActorRef, val hash: ArtifactHash) : Message()
+            data class AlreadyDownloaded(val sender: ActorRef, val hash: ArtifactHash) : Message()
+            data class Info(val sender: ActorRef, val hash: ArtifactHash, val message: String) : Message()
+            data class Error(val sender: ActorRef, val hash: ArtifactHash, val message: List<String> = emptyList()) : Message()
         }
 
-        fun File.md5(): String {
-            val md = MessageDigest.getInstance("MD5")
+        fun hashFileExtension(algorithm: HashAlgorithm): String = algorithm.name.lowercase()
+
+        fun File.digest(algorithm: HashAlgorithm): String {
+            val md = MessageDigest.getInstance(algorithm.digestName)
             val sb = StringBuilder()
 
             inputStream().use { fis ->

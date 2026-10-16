@@ -103,7 +103,7 @@ class DeploymentTimeForcedTest : AbstractDeploymentTest() {
         return ActionStatus(setOf(
             *endMessagesOnSuccessUpdate,
             *TestUtils.messagesOnSuccessfullyDownloadDistribution(
-                TestUtils.md5OfFileNamed("test1"), TARGET_ID,
+                TestUtils.sha256OfFileNamed("test1"), TARGET_ID,
                 "1", "test_1"),
             *authorizationMessage,
             *TestUtils.firstActionsOnTargetDeployment

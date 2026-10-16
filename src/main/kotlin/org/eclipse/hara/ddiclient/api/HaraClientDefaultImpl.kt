@@ -55,7 +55,7 @@ class HaraClientDefaultImpl : HaraClient {
                 DdiClientDefaultImpl.of(haraClientData, httpBuilder),
                 UpdaterRegistry(*updaters.toTypedArray()),
                 configDataProvider,
-                PathResolver(directoryForArtifactsProvider),
+                PathResolver(directoryForArtifactsProvider, haraClientData.artifactHashes),
                 softDeploymentPermitProvider,
                 messageListeners,
                 downloadBehavior,

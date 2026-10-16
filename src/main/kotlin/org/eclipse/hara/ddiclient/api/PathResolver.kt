@@ -12,7 +12,10 @@ package org.eclipse.hara.ddiclient.api
 
 import java.io.File
 
-class PathResolver(private val dfap: DirectoryForArtifactsProvider) {
+class PathResolver @JvmOverloads constructor(
+    private val dfap: DirectoryForArtifactsProvider,
+    private val artifactHashes: List<HashAlgorithm> = HaraClientData.DEFAULT_ARTIFACT_HASHES
+) {
 
     companion object {
         const val ROOT = "artifacts"
@@ -20,7 +23,7 @@ class PathResolver(private val dfap: DirectoryForArtifactsProvider) {
 
     fun fromArtifact(id: String): (artifact: Updater.SwModule.Artifact) -> String {
         return { artifact ->
-            File(dfap.directoryForArtifacts(), artifact.hashes.md5).absolutePath
+            File(dfap.directoryForArtifacts(), hashOf(artifact.hashes).value).absolutePath
         }
     }
 
@@ -31,4 +34,8 @@ class PathResolver(private val dfap: DirectoryForArtifactsProvider) {
     fun updateDir(actionId: String): File {
         return baseDirectory()
     }
+
+    internal fun hashOf(hashes: Updater.Hashes): ArtifactHash = ArtifactHash.of(hashes, artifactHashes)
+
+    internal fun hashOrNull(hashes: Updater.Hashes): ArtifactHash? = ArtifactHash.ofOrNull(hashes, artifactHashes)
 }

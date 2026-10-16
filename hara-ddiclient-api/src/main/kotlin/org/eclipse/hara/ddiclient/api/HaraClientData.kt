@@ -24,16 +24,29 @@ import java.net.URL
  * on the Update Server. It is different for each tenant.
  * @property targetToken used by the client to authenticate itself
  * on the Update Server. It is different for each device.
+ * @property artifactHashes hash algorithms accepted to check the downloaded artifacts,
+ * in order of preference. For each artifact the client uses the first one the server sends
+ * a hash for; an artifact without any of them can't be downloaded.
  */
-data class HaraClientData constructor(
+data class HaraClientData @JvmOverloads constructor(
         val tenant: String,
         val controllerId: String,
         val serverUrl: String,
         val gatewayToken: String? = null,
         val targetToken: String? = null,
+        val artifactHashes: List<HashAlgorithm> = DEFAULT_ARTIFACT_HASHES,
 ) {
 
+    companion object {
+        /**
+         * SHA-256, or MD5 when the server doesn't send a SHA-256 hash
+         */
+        @JvmField
+        val DEFAULT_ARTIFACT_HASHES: List<HashAlgorithm> = listOf(HashAlgorithm.SHA256, HashAlgorithm.MD5)
+    }
+
     init {
+        require(artifactHashes.isNotEmpty()) { "artifactHashes could not be empty" }
         notEmpty(tenant, "tenant")
         notEmpty(controllerId, "controllerId")
         notEmpty(serverUrl, "serverUrl")
