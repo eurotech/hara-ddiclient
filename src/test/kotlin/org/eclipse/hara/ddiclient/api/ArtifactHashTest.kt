@@ -57,6 +57,40 @@ class ArtifactHashTest {
     }
 
     @Test
+    fun aPathIsRejected() {
+        val e = expectThrows(ArtifactHashException::class.java) {
+            ArtifactHash.of(Updater.Hashes(SHA1_VALUE, "../victim/pwned"), listOf(MD5))
+        }
+
+        assertTrue(e.message!!.startsWith("The server sent a malformed MD5 hash"), e.message)
+    }
+
+    @Test
+    fun aHashOfTheWrongLengthIsRejected() {
+        expectThrows(ArtifactHashException::class.java) {
+            ArtifactHash.of(ALL.copy(sha256 = MD5_VALUE), listOf(SHA256))
+        }
+        expectThrows(ArtifactHashException::class.java) {
+            ArtifactHash.of(ALL.copy(md5 = MD5_VALUE + "0"), listOf(MD5))
+        }
+    }
+
+    @Test
+    fun aMalformedHashDoesNotFallBackToTheNextAlgorithm() {
+        val hashes = ALL.copy(sha256 = "z" + SHA256_VALUE.drop(1))
+
+        expectThrows(ArtifactHashException::class.java) { ArtifactHash.of(hashes, HaraClientData.DEFAULT_ARTIFACT_HASHES) }
+        assertNull(ArtifactHash.ofOrNull(hashes, HaraClientData.DEFAULT_ARTIFACT_HASHES))
+    }
+
+    @Test
+    fun onlyValidHashesCanBeCreated() {
+        expectThrows(IllegalArgumentException::class.java) { ArtifactHash(MD5, "../victim/pwned") }
+        expectThrows(IllegalArgumentException::class.java) { ArtifactHash(SHA256, SHA256_VALUE.uppercase()) }
+        expectThrows(IllegalArgumentException::class.java) { ArtifactHash(SHA1, MD5_VALUE) }
+    }
+
+    @Test
     fun toStringNamesTheAlgorithm() {
         assertEquals(ArtifactHash(SHA256, SHA256_VALUE).toString(), "sha256 $SHA256_VALUE")
     }

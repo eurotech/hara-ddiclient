@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit
 class HaraClientArtifactHashTest {
 
     private lateinit var server: MockWebServer
+    private lateinit var baseDir: File
     private lateinit var artifactsDir: File
     private lateinit var client: HaraClient
     private lateinit var closed: CompletableFuture<Unit>
@@ -49,14 +50,15 @@ class HaraClientArtifactHashTest {
         feedback.clear()
         artifactRequested = false
         server = MockWebServer()
-        artifactsDir = Files.createTempDirectory("hara-artifact-hash").toFile()
+        baseDir = Files.createTempDirectory("hara-artifact-hash").toFile()
+        artifactsDir = File(baseDir, "artifacts").apply { mkdirs() }
     }
 
     @AfterMethod
     fun tearDown() {
         client.stop()
         server.shutdown()
-        artifactsDir.deleteRecursively()
+        baseDir.deleteRecursively()
     }
 
     @Test
@@ -100,6 +102,31 @@ class HaraClientArtifactHashTest {
         assertEquals(execution, "closed")
         assertTrue(detail.startsWith(
             "Failed to select the files to download: The server sent none of the accepted hashes SHA256"), detail)
+        assertFalse(artifactRequested)
+        assertFalse(appliedFiles.isDone)
+    }
+
+    @Test
+    fun aHashThatIsAPathIsRefused() {
+        startClient(hashes = """{"sha1":"$SHA1","md5":"../victim/pwned"}""", artifactHashes = listOf(HashAlgorithm.MD5))
+
+        closed.get(20, TimeUnit.SECONDS)
+        val (execution, detail) = feedback.single()
+        assertEquals(execution, "closed")
+        assertTrue(detail.startsWith("Failed to select the files to download: The server sent a malformed MD5 hash"), detail)
+        assertFalse(artifactRequested)
+        assertFalse(File(baseDir, "victim").exists())
+        assertEquals(artifactsDir.list()!!.toList(), emptyList<String>())
+    }
+
+    @Test
+    fun aMalformedSha256DoesNotFallBackToTheMd5() {
+        startClient(hashes = """{"sha1":"$SHA1","md5":"$MD5","sha256":"../$SHA256"}""")
+
+        closed.get(20, TimeUnit.SECONDS)
+        val (execution, detail) = feedback.single()
+        assertEquals(execution, "closed")
+        assertTrue(detail.startsWith("Failed to select the files to download: The server sent a malformed SHA256 hash"), detail)
         assertFalse(artifactRequested)
         assertFalse(appliedFiles.isDone)
     }
