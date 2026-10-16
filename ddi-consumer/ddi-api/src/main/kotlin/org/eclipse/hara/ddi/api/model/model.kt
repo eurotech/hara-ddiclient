@@ -250,8 +250,8 @@ data class DeploymentBaseResponse(
                     val _links: Links
             ) {
                 data class Hashes(
-                    val sha1: String,
-                    val md5: String,
+                    val sha1: String?,
+                    val md5: String?,
                     val sha256: String? = null
                 )
                 data class Links(
@@ -287,8 +287,8 @@ data class ArtifactResponse(
         val _links: Links
 ) {
     data class Hashes(
-        val sha1: String,
-        val md5: String,
+        val sha1: String?,
+        val md5: String?,
         val sha256: String? = null
     )
     data class Links(

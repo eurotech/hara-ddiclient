@@ -61,7 +61,6 @@ data class ArtifactHash(val algorithm: HashAlgorithm, val value: String) {
                 HashAlgorithm.SHA256 -> 64
             }
 
-        // Values typed as non-null can still be null when the server omits them (Gson)
         private fun Updater.Hashes.valueOf(algorithm: HashAlgorithm): String? = when (algorithm) {
             HashAlgorithm.MD5 -> md5
             HashAlgorithm.SHA1 -> sha1
