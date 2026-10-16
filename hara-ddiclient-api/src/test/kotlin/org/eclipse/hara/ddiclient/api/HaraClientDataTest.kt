@@ -36,11 +36,11 @@ class HaraClientDataTest {
         assertNull(data.targetToken)
     }
 
+    // Blank tokens mean "not used", like null ones
     @Test
-    fun bothTokensEmptyIsRejected() {
-        expectThrows(IllegalStateException::class.java) {
-            HaraClientData(TENANT, CONTROLLER_ID, URL, gatewayToken = "", targetToken = "")
-        }
+    fun blankTokensAreAccepted() {
+        HaraClientData(TENANT, CONTROLLER_ID, URL, gatewayToken = "", targetToken = "")
+        HaraClientData(TENANT, CONTROLLER_ID, URL, gatewayToken = " ", targetToken = null)
     }
 
     @Test
