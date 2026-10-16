@@ -25,6 +25,7 @@ import java.io.File
 interface DirectoryForArtifactsProvider {
 
     /**
+     * If it throws, the client closes the current action as failed.
      * @return the base directory used to store
      * the artifacts
      */

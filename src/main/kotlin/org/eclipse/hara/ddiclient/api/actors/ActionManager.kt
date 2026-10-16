@@ -12,6 +12,10 @@ package org.eclipse.hara.ddiclient.api.actors
 
 import org.eclipse.hara.ddi.api.model.ConfigurationDataRequest
 import org.eclipse.hara.ddi.api.model.CancelFeedbackRequest
+import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest
+import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest.Status.Execution.closed
+import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest.Status.Result.Finished.failure
+import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest.Status.Result.Progress
 import org.eclipse.hara.ddiclient.api.actors.ConnectionManager.Companion.Message.In
 import org.eclipse.hara.ddiclient.api.actors.ConnectionManager.Companion.Message.Out
 import org.eclipse.hara.ddiclient.api.actors.ConnectionManager.Companion.Message.Out.Err.ErrMsg
@@ -57,13 +61,11 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
             msg is DeploymentManager.Companion.Message.UpdateFailed ||
                     msg is DeploymentManager.Companion.Message.UpdateFinished -> {
                 LOG.info(msg.javaClass.simpleName)
-                become(defaultReceive(state.copy(deployment = null)))
-                child("deploymentManager")!!.close()
-                if (isFrequentPollingEnabled) {
-                    LOG.info("Restore server ping interval")
-                    connectionManager.send(In.SetPing(null))
-                }
+                endDeployment(state)
             }
+
+            // Only the deployment's actors are below this one
+            state.inDeployment && msg is ActorException -> onDeploymentError(msg, state)
 
             msg is Out.DeploymentCancelInfo -> onCancelInfo(msg, state)
 
@@ -107,6 +109,25 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
                 }
             }
         }
+    }
+
+    private suspend fun endDeployment(state: State) {
+        become(defaultReceive(state.copy(deployment = null)))
+        child("deploymentManager")!!.close()
+        if (isFrequentPollingEnabled) {
+            LOG.info("Restore server ping interval")
+            connectionManager.send(In.SetPing(null))
+        }
+    }
+
+    // An unexpected error in any of the deployment's actors closes the action as failed
+    private suspend fun onDeploymentError(error: ActorException, state: State) {
+        LOG.error("Closing action ${state.deployment!!.info.id} after an error: ${error.details}")
+        val details = listOf(error.details)
+        connectionManager.send(In.DeploymentFeedback(DeploymentFeedbackRequest.newInstance(
+            state.deployment.info.id, closed, Progress(0, 0), failure, *details.toTypedArray())))
+        notificationManager.send(MessageListener.Message.Event.UpdateFinished(successApply = false, details = details))
+        endDeployment(state)
     }
 
     private suspend fun onCancelInfo(msg: Out.DeploymentCancelInfo, state: State) {

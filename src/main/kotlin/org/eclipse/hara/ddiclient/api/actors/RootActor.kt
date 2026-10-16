@@ -10,6 +10,7 @@
 
 package org.eclipse.hara.ddiclient.api.actors
 
+import org.eclipse.hara.ddiclient.api.MessageListener
 import org.eclipse.hara.ddiclient.api.actors.ConnectionManager.Companion.Message.In
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -22,6 +23,9 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
     private fun mainReceive(): Receive = { msg ->
         when (msg) {
             is In.Start, In.ForcePing -> child("connectionManager")!!.send(msg)
+
+            // An error outside a deployment: there is no action to fail, and the actor goes on
+            is ActorException -> child("notificationManager")!!.send(MessageListener.Message.Event.Error(listOf(msg.details)))
 
             else -> handleMsgDefault(msg)
         }

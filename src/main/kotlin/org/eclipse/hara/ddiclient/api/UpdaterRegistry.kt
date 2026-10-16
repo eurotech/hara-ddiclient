@@ -11,8 +11,8 @@
 package org.eclipse.hara.ddiclient.api
 
 import org.eclipse.hara.ddi.api.model.DeploymentBaseResponse
+import org.eclipse.hara.ddiclient.api.actors.isFatal
 import org.slf4j.LoggerFactory
-import kotlin.coroutines.cancellation.CancellationException
 
 class UpdaterRegistry(private vararg val updaters: Updater) {
 
@@ -89,11 +89,8 @@ private val LOG = LoggerFactory.getLogger(UpdaterRegistry::class.java)
 internal fun <T> Updater.call(method: String, block: Updater.() -> T): T =
     try {
         block()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: VirtualMachineError) {
-        throw e
     } catch (t: Throwable) {
+        if (t.isFatal()) throw t
         val e = UpdaterException(this, method, t)
         LOG.error(e.message, t)
         throw e

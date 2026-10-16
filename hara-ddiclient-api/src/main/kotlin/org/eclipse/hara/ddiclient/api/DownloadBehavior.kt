@@ -17,6 +17,7 @@ interface DownloadBehavior {
 
     /**
      * Method that defines whether the client should execute a download or not.
+     * If it throws, the client closes the current action as failed.
      * @param attempt index of the next download attempt for the artifact identified by [artifactId].
      * Its value is in the [1, 2147483647] range, any attempt after 2147483647 will have index
      * 2147483647.

@@ -202,7 +202,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
             notificationManager.send(MessageListener.Message.Event.Polling)
 
-            if (!configDataProvider.isUpdated()) {
+            if (!configDataUpdated()) {
                 this.send(Out.ConfigDataRequired, state)
             }
 
@@ -229,6 +229,15 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
             become(runningReceive(startPing(newBackoffState)))
             notificationManager.send(MessageListener.Message.Event.Error(listOf(errorDetails)))
         }
+    }
+
+    // A failing provider must not stop the polling: the config data is then treated as not updated
+    private fun configDataUpdated(): Boolean = try {
+        configDataProvider.isUpdated()
+    } catch (t: Throwable) {
+        if (t.isFatal()) throw t
+        LOG.error("ConfigDataProvider.isUpdated failed, treating the config data as not updated", t)
+        false
     }
 
     private suspend fun exceptionHandler(state: State, function: suspend () -> Unit) {
