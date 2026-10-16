@@ -105,7 +105,7 @@ class DeploymentMaintenanceWindowTest : AbstractDeploymentTest() {
         ActionStatus(setOf(
             *endMessagesOnSuccessUpdate,
             *messagesOnSuccessfullyDownloadDistribution(
-                TestUtils.md5OfFileNamed("test1"), TARGET_ID,
+                TestUtils.sha256OfFileNamed("test1"), TARGET_ID,
                 "1", "test_1"),
             *TestUtils.firstActionsOnTargetDeployment
         ))

@@ -10,15 +10,18 @@
 
 package org.eclipse.hara.ddiclient.api.actors
 
+import org.eclipse.hara.ddiclient.api.HashAlgorithm
 import org.eclipse.hara.ddiclient.api.PathResolver
 import org.eclipse.hara.ddiclient.api.actors.FileDownloader.Companion.DOWNLOADING_EXTENSION
+import org.eclipse.hara.ddiclient.api.actors.FileDownloader.Companion.hashFileExtension
 import org.slf4j.LoggerFactory
 import java.io.File
 
 /**
  * Removes the artifacts that the current update doesn't need from the artifacts directory.
  *
- * Only the files the client creates are removed: `<md5>`, `<md5>.md5` and `<md5>.downloading`.
+ * Only the files the client creates are removed: `<hash>`, `<hash>.<algorithm>` (e.g. `<hash>.sha256`)
+ * and `<hash>.downloading`, where `<hash>` is an MD5, SHA-1 or SHA-256 hash.
  * Other files and directories are left alone, since the directory may be shared with the
  * integrator (e.g. /data/ota_package on Android).
  */
@@ -26,20 +29,23 @@ internal object ArtifactsCleaner {
 
     private val LOG = LoggerFactory.getLogger(ArtifactsCleaner::class.java)
 
-    private val CLIENT_FILE_NAME = Regex("([0-9a-f]{32})(\\.md5|\\.$DOWNLOADING_EXTENSION)?")
+    private val CLIENT_FILE_NAME = Regex(
+        "([0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{64})" +
+            (HashAlgorithm.values().map(::hashFileExtension) + DOWNLOADING_EXTENSION)
+                .joinToString("|", "(\\.(?:", "))?"))
 
     // Release 2.0.0 stored the artifacts in <dir>/artifacts/<actionId>/
     private val LEGACY_ACTION_DIR_NAME = Regex("[0-9]+")
 
-    fun clean(dir: File, md5sToKeep: Set<String>) {
-        deleteClientFiles(dir, md5sToKeep)
+    fun clean(dir: File, hashesToKeep: Set<String>) {
+        deleteClientFiles(dir, hashesToKeep)
         cleanLegacyLayout(File(dir, PathResolver.ROOT))
     }
 
-    private fun deleteClientFiles(dir: File, md5sToKeep: Set<String>) {
+    private fun deleteClientFiles(dir: File, hashesToKeep: Set<String>) {
         dir.listFiles()?.forEach { file ->
-            val md5 = CLIENT_FILE_NAME.matchEntire(file.name)?.groupValues?.get(1)
-            if (md5 != null && md5 !in md5sToKeep && file.isFile) {
+            val hash = CLIENT_FILE_NAME.matchEntire(file.name)?.groupValues?.get(1)
+            if (hash != null && hash !in hashesToKeep && file.isFile) {
                 LOG.info("Removing artifact file ${file.absolutePath}")
                 if (!file.delete()) {
                     LOG.warn("Can't remove artifact file ${file.absolutePath}")

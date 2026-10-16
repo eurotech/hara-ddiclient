@@ -61,8 +61,26 @@ class ArtifactsCleanerTest {
     }
 
     @Test
+    fun removesTheFilesOfEveryHashAlgorithm() {
+        files(SHA1, "$SHA1.sha1", SHA256, "$SHA256.sha256", "$SHA256.downloading", OLD, "$OLD.md5")
+
+        ArtifactsCleaner.clean(dir, emptySet())
+
+        assertEquals(names(dir), emptySet<String>())
+    }
+
+    @Test
+    fun keepsTheFilesOfTheCurrentUpdateNamedAfterTheirSha256() {
+        files(SHA256, "$SHA256.sha256", OLD, "$OLD.md5")
+
+        ArtifactsCleaner.clean(dir, setOf(SHA256))
+
+        assertEquals(names(dir), setOf(SHA256, "$SHA256.sha256"))
+    }
+
+    @Test
     fun leavesFilesNotCreatedByTheClientAlone() {
-        val foreign = setOf("notes.txt", OLD.dropLast(1), "$OLD.bak", "update.zip")
+        val foreign = setOf("notes.txt", OLD.dropLast(1), "$OLD.bak", "update.zip", SHA256 + "0", "$SHA256.md4")
         foreign.forEach { File(dir, it).writeText("foreign") }
         File(dir, "$OTHER_CURRENT/inner").apply { parentFile.mkdirs() }.writeText("foreign")
         File(dir, "data/inner").apply { parentFile.mkdirs() }.writeText("foreign")
@@ -109,5 +127,7 @@ class ArtifactsCleanerTest {
         private const val CURRENT = "5d41402abc4b2a76b9719d911017c592"
         private const val OTHER_CURRENT = "d41d8cd98f00b204e9800998ecf8427e"
         private const val OLD = "7d793037a0760186574b0282f2f435e7"
+        private const val SHA1 = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
+        private const val SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
     }
 }

@@ -10,6 +10,7 @@
 
 package org.eclipse.hara.ddiclient.api
 
+import org.testng.Assert.assertEquals
 import org.testng.Assert.assertNull
 import org.testng.Assert.expectThrows
 import org.testng.annotations.Test
@@ -60,6 +61,20 @@ class HaraClientDataTest {
     fun malformedUrlIsRejected() {
         expectThrows(IllegalArgumentException::class.java) {
             HaraClientData(TENANT, CONTROLLER_ID, "hawkbit.example.com", targetToken = "token")
+        }
+    }
+
+    @Test
+    fun sha256ThenMd5ByDefault() {
+        val data = HaraClientData(TENANT, CONTROLLER_ID, URL, targetToken = "token")
+
+        assertEquals(data.artifactHashes, listOf(HashAlgorithm.SHA256, HashAlgorithm.MD5))
+    }
+
+    @Test
+    fun noArtifactHashesIsRejected() {
+        expectThrows(IllegalArgumentException::class.java) {
+            HaraClientData(TENANT, CONTROLLER_ID, URL, targetToken = "token", artifactHashes = emptyList())
         }
     }
 

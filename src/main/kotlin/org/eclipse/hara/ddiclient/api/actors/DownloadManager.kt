@@ -39,8 +39,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.eclipse.hara.ddi.api.model.CancelFeedbackRequest
 import org.eclipse.hara.ddiclient.api.DeploymentPermitProvider
+import org.eclipse.hara.ddiclient.api.ArtifactHash
+import org.eclipse.hara.ddiclient.api.ArtifactHashException
 import org.eclipse.hara.ddiclient.api.UpdaterException
-import org.eclipse.hara.ddiclient.api.actors.FileDownloader.Companion.md5
+import org.eclipse.hara.ddiclient.api.actors.FileDownloader.Companion.digest
+import org.eclipse.hara.ddiclient.api.toUpdaterHashes
 
 @OptIn(ObsoleteCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 class DownloadManager
@@ -59,7 +62,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
     private fun beforeStartReceive(): Receive = { msg ->
         when (msg) {
 
-            is DeploymentInfo -> failDownloadOnUpdaterError(msg.info.id) {
+            is DeploymentInfo -> failDownloadOnSelectionError(msg.info.id) {
                 checkAndHandleFilesAlreadyDownloaded(msg) {
 
                     when {
@@ -105,24 +108,23 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
     private suspend fun checkAndHandleFilesAlreadyDownloaded(msg: DeploymentInfo,
                                                              block: suspend () -> Unit) {
-        val alreadyDownloaded = mutableMapOf<String, Boolean>()
+        val alreadyDownloaded = mutableMapOf<ArtifactHash, Boolean>()
         val wd = pathResolver.updateDir(msg.info.id)
-        val md5s = md5OfFilesToBeDownloaded(msg.info)
-        val dms = createDownloadsManagers(msg.info, md5s)
+        val hashes = hashesOfFilesToBeDownloaded(msg.info)
+        val dms = createDownloadsManagers(msg.info, hashes)
 
-        msg.info.deployment.chunks.flatMap { it.artifacts }
-            .filter { md5s.contains(it.hashes.md5) }.forEach { at ->
-                val ftd = FileToDownload(at.filename, at.hashes.md5,
-                    DownloadLinks.urlsOf(at, serverUrl), wd, at.size)
-                alreadyDownloaded[ftd.md5] = ftd.destination.exists() && (ftd.md5 == ftd.destination.md5() ||
-                        (ftd.destinationMd5File.exists() && ftd.md5 == ftd.destinationMd5File.readText()))
-            }
+        msg.info.artifactsWithHashIn(hashes).forEach { (at, hash) ->
+            val ftd = FileToDownload(at.filename, hash,
+                DownloadLinks.urlsOf(at, serverUrl), wd, at.size)
+            alreadyDownloaded[hash] = ftd.destination.exists() && (hash.value == ftd.destination.digest(hash.algorithm) ||
+                    (ftd.destinationHashFile.exists() && hash.value == ftd.destinationHashFile.readText()))
+        }
 
         if (alreadyDownloaded.isNotEmpty() && !alreadyDownloaded.values.contains(false)) {
             become(downloadingReceive(State(msg.info, dms)))
-            alreadyDownloaded.forEach { (md5, _) ->
+            alreadyDownloaded.forEach { (hash, _) ->
                 channel.send(
-                    FileDownloader.Companion.Message.AlreadyDownloaded(channel, md5))
+                    FileDownloader.Companion.Message.AlreadyDownloaded(channel, hash))
             }
         } else {
             block()
@@ -145,20 +147,20 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
     private suspend fun startDownloadProcedure(msg: DeploymentInfo) {
 
-        val md5s = md5OfFilesToBeDownloaded(msg.info)
-        clean(md5s)
+        val hashes = hashesOfFilesToBeDownloaded(msg.info)
+        clean(hashes)
 
-        if (md5s.isNotEmpty()) {
+        if (hashes.isNotEmpty()) {
 
             notificationManager.send(
                 MessageListener.Message.State.Downloading(
-                    msg.info.deployment.chunks.flatMap { it.artifacts }.filter { md5s.contains(it.hashes.md5) }.map { at ->
-                        MessageListener.Message.State.Downloading.Artifact(at.filename, at.size, at.hashes.md5)
+                    msg.info.artifactsWithHashIn(hashes).map { (at, _) ->
+                        MessageListener.Message.State.Downloading.Artifact(at.filename, at.size, at.hashes.toUpdaterHashes())
                     }.toList()
                 )
             )
 
-            val dms = createDownloadsManagers(msg.info, md5s)
+            val dms = createDownloadsManagers(msg.info, hashes)
             become(downloadingReceive(State(msg.info, dms)))
             feedback(msg.info.id, Execution.download, Progress(dms.size, 0), none,
                 "Start downloading ${dms.size} files")
@@ -187,7 +189,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
                 val message = "Authorization granted for downloading files"
                 LOG.info(message)
                 feedback(state.deplBaseResp.id, proceeding, Progress(0, 0), none, message)
-                failDownloadOnUpdaterError(state.deplBaseResp.id) {
+                failDownloadOnSelectionError(state.deplBaseResp.id) {
                     startDownloadProcedure(DeploymentInfo(state.deplBaseResp))
                 }
             }
@@ -208,11 +210,11 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         when (msg) {
 
             is FileDownloader.Companion.Message.Success -> {
-                processMessage(state, msg.md5, Status.SUCCESS, "Successfully downloaded file with md5 ${msg.md5}")
+                processMessage(state, msg.hash, Status.SUCCESS, "Successfully downloaded file with ${msg.hash}")
             }
 
             is FileDownloader.Companion.Message.AlreadyDownloaded -> {
-                processMessage(state, msg.md5, Status.SUCCESS, "${msg.md5} already downloaded")
+                processMessage(state, msg.hash, Status.SUCCESS, "${msg.hash} already downloaded")
             }
 
             is FileDownloader.Companion.Message.Info -> {
@@ -221,19 +223,19 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
             }
 
             is FileDownloader.Companion.Message.Error -> {
-                processMessage(state, msg.md5,
-                    Status.ERROR, "Failed to download file with md5 ${msg.md5} due to ${msg.message}", msg.message)
+                processMessage(state, msg.hash,
+                    Status.ERROR, "Failed to download file with ${msg.hash} due to ${msg.message}", msg.message)
             }
 
             else -> handleMsgDefault(msg)
         }
     }
 
-    private suspend fun processMessage(state: State, md5: String, status: Status, message: String, errorMsg: List<String>? = null) {
-        val download = state.downloads.getValue(md5)
+    private suspend fun processMessage(state: State, hash: ArtifactHash, status: Status, message: String, errorMsg: List<String>? = null) {
+        val download = state.downloads.getValue(hash)
         val newErrMessages = if (errorMsg == null) download.state.messages else download.state.messages + errorMsg
         val newDownload = download.copy(state = download.state.copy(status = status, messages = newErrMessages))
-        val newState = state.copy(downloads = state.downloads + (md5 to newDownload))
+        val newState = state.copy(downloads = state.downloads + (hash to newDownload))
         val downloads = newState.downloads.values
         val progress = newState.getProgress()
         when {
@@ -255,11 +257,13 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         }
     }
 
-    // An updater error while choosing the files to download closes the action as a failed download
-    private suspend fun failDownloadOnUpdaterError(id: String, block: suspend () -> Unit) {
+    // An updater error, or an artifact without an accepted hash, while choosing the files to download
+    // closes the action as a failed download
+    private suspend fun failDownloadOnSelectionError(id: String, block: suspend () -> Unit) {
         try {
             block()
-        } catch (e: UpdaterException) {
+        } catch (e: Exception) {
+            if (e !is UpdaterException && e !is ArtifactHashException) throw e
             val message = "Failed to select the files to download: ${e.message}"
             feedback(id, closed, Progress(0, 0), failure, message)
             notificationManager.send(
@@ -286,23 +290,28 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         connectionManager.send(DeploymentFeedback(deplFdbkReq))
     }
 
-    private fun md5OfFilesToBeDownloaded(dbr: DeploymentBaseResponse): Set<String> = when (dbr.deployment.download) {
-        attempt, forced -> registry.allRequiredArtifactsFor(dbr.deployment.chunks).map { it.md5 }.toSet()
+    private fun hashesOfFilesToBeDownloaded(dbr: DeploymentBaseResponse): Set<ArtifactHash> = when (dbr.deployment.download) {
+        attempt, forced -> registry.allRequiredArtifactsFor(dbr.deployment.chunks).map { pathResolver.hashOf(it) }.toSet()
         else -> emptySet()
     }
 
-    private fun createDownloadsManagers(dbr: DeploymentBaseResponse, md5s: Set<String>): Map<String, Download> {
+    // Artifacts the updaters don't need may lack an accepted hash: they're skipped, not an error
+    private fun DeploymentBaseResponse.artifactsWithHashIn(hashes: Set<ArtifactHash>) =
+        deployment.chunks.flatMap { it.artifacts }.mapNotNull { at ->
+            pathResolver.hashOrNull(at.hashes.toUpdaterHashes())?.takeIf { it in hashes }?.let { at to it }
+        }
+
+    private fun createDownloadsManagers(dbr: DeploymentBaseResponse, hashes: Set<ArtifactHash>): Map<ArtifactHash, Download> {
         val wd = pathResolver.updateDir(dbr.id)
         if (!wd.exists()) {
             wd.mkdirs()
         }
-        return dbr.deployment.chunks.flatMap { it.artifacts }.filter { md5s.contains(it.hashes.md5) }.map { at ->
-            val md5 = at.hashes.md5
-            val ftd = FileToDownload(at.filename, md5, DownloadLinks.urlsOf(at, serverUrl), wd, at.size)
-            val dm = actorOf(childName(md5)) {
+        return dbr.artifactsWithHashIn(hashes).map { (at, hash) ->
+            val ftd = FileToDownload(at.filename, hash, DownloadLinks.urlsOf(at, serverUrl), wd, at.size)
+            val dm = actorOf(childName(hash)) {
                 FileDownloader.of(it, ftd, dbr.id)
             }
-            Pair(md5, Download(dm))
+            Pair(hash, Download(dm))
         }.toMap()
     }
 
@@ -327,12 +336,12 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
     private val DeploymentInfo.isDownloadSoft: Boolean
         get() = info.deployment.download == attempt
 
-    private fun childName(md5: String) = "fileDownloader_for_$md5"
+    private fun childName(hash: ArtifactHash) = "fileDownloader_for_${hash.value}"
 
-    private fun clean(md5sToKeep: Set<String>) = runBlocking {
+    private fun clean(hashesToKeep: Set<ArtifactHash>) = runBlocking {
         LOG.info("Removing artifacts not needed by the current update")
         withContext(Dispatchers.IO) {
-            ArtifactsCleaner.clean(pathResolver.baseDirectory(), md5sToKeep)
+            ArtifactsCleaner.clean(pathResolver.baseDirectory(), hashesToKeep.map { it.value }.toSet())
         }
     }
 
@@ -345,7 +354,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
         data class State(
                 val deplBaseResp: DeploymentBaseResponse,
-                val downloads: Map<String, Download> = emptyMap()
+                val downloads: Map<ArtifactHash, Download> = emptyMap()
         ) {
             data class Download(val downloader: ActorRef, val state: State = State()) {
                 data class State(val status: Status = Status.RUNNING, val messages: List<String> = emptyList()) {

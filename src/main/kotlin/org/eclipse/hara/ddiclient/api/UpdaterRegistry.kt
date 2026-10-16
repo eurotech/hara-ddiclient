@@ -69,9 +69,7 @@ class UpdaterRegistry(private vararg val updaters: Updater) {
     private fun convert(artfct: DeploymentBaseResponse.Deployment.Chunks.Artifact): Updater.SwModule.Artifact =
             Updater.SwModule.Artifact(
                     artfct.filename,
-                    Updater.Hashes(
-                            artfct.hashes.sha1,
-                            artfct.hashes.md5),
+                    artfct.hashes.toUpdaterHashes(),
                     artfct.size)
 }
 

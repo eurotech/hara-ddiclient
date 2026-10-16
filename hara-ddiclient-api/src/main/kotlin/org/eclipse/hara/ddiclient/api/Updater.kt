@@ -174,9 +174,11 @@ interface Updater {
      * Artifact hashes
      * @property sha1 SHA1 hash
      * @property md5 MD5 hash
+     * @property sha256 SHA-256 hash, null if the server didn't send it
      */
-    data class Hashes(
+    data class Hashes @JvmOverloads constructor(
         val sha1: String,
-        val md5: String
+        val md5: String,
+        val sha256: String? = null
     )
 }
