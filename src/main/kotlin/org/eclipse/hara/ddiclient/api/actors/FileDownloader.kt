@@ -213,7 +213,7 @@ private constructor(
             actionId: String
     ): Timer {
         return fixedRateTimer("Download Checker ${fileToDownload.fileName}", true, 60_000, 60_000) {
-            launch {
+            launchCatching {
                 val progress = inputStream.getProgress()
                 val limit = queue.peek() ?: 1.0
                 if (progress > limit) {
@@ -238,7 +238,7 @@ private constructor(
     }
 
     private suspend fun checkHashOfDownloadedFile() {
-        launch {
+        launchCatching {
             var fileAlreadyDownloaded = false
             val file = if(fileToDownload.destination.exists()) {
                 LOG.info("${fileToDownload.fileName} already downloaded. Checking ${fileToDownload.hash.algorithm}...")

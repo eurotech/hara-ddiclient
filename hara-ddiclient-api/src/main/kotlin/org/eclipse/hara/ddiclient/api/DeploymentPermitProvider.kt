@@ -15,7 +15,10 @@ import kotlinx.coroutines.Deferred
 
 /**
  * Provider of permit used to authorize action
- * during a soft update (not forced)
+ * during a soft update (not forced).
+ *
+ * If a method throws, or its [Deferred] completes with an exception,
+ * the client closes the current action as failed.
  */
 interface DeploymentPermitProvider {
 

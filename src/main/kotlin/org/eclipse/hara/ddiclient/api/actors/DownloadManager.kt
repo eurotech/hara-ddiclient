@@ -34,7 +34,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ObsoleteCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.eclipse.hara.ddi.api.model.CancelFeedbackRequest
@@ -96,7 +95,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
         feedback(msg.info.id, proceeding, Progress(0, 0), none, message)
         become(waitingDownloadAuthorization(state.copy(deplBaseResp = msg.info)))
         waitingAuthJob?.cancel()
-        waitingAuthJob = launch {
+        waitingAuthJob = launchCatching {
             softRequest.onAuthorizationReceive(onWaitForAuthorization = {
                 notificationManager.send(MessageListener.Message.State.WaitingDownloadAuthorization())
             }, onGrantAuthorization = {

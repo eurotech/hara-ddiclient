@@ -16,7 +16,9 @@ package org.eclipse.hara.ddiclient.api
 interface MessageListener {
 
     /**
-     * Callback called to notify an event or a state change
+     * Callback called to notify an event or a state change.
+     * An exception thrown here is logged and ignored: the other listeners still get
+     * the message, and the client goes on.
      */
     fun onMessage(message: Message)
 

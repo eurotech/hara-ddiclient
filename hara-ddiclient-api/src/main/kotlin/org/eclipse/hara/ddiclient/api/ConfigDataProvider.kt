@@ -17,7 +17,9 @@ package org.eclipse.hara.ddiclient.api
 interface ConfigDataProvider {
 
     /**
-     * Device data that is sent to the server
+     * Device data that is sent to the server.
+     * If it throws, nothing is sent: the error is logged and notified as
+     * [MessageListener.Message.Event.Error], and the client goes on.
      * @return the map that contains the device data
      */
     fun configData(): Map<String, String> = emptyMap()
@@ -25,6 +27,7 @@ interface ConfigDataProvider {
     /**
      * @returns true if the map returned by [configData]
      * is the same that was sent to the server, false otherwise.
+     * If it throws, the error is logged and the data is treated as not updated.
      */
     fun isUpdated(): Boolean = false
 

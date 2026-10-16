@@ -54,6 +54,8 @@ abstract class AbstractActor protected constructor(private val actorScope: Actor
            is ConnectionManager.Companion.Message.In.Stop -> {
                stopActor()
            }
+            // Errors go up to the actor that can handle them: ActionManager during a deployment, else RootActor
+            is ActorException -> parent?.send(msg) ?: unhandled(msg)
             else -> unhandled(msg)
         }
     }
@@ -75,6 +77,22 @@ abstract class AbstractActor protected constructor(private val actorScope: Actor
 
     protected open fun beforeCloseChannel() {
         children.forEach { (_, c) -> c.close() }
+    }
+
+    // Like launch, but an error ends only the job and is reported like a failed message,
+    // instead of cancelling this actor and all its ancestors
+    protected fun launchCatching(block: suspend CoroutineScope.() -> Unit): Job = launch {
+        try {
+            block()
+        } catch (t: Throwable) {
+            if (t.isFatal()) throw t
+            reportError(t)
+        }
+    }
+
+    private suspend fun reportError(t: Throwable) {
+        LOG.error("Error in actor {}: {}", name, t.toString(), t)
+        parent?.send(ActorException(name, channel, t))
     }
 
     protected suspend fun forEachActorNode(ope: suspend (ActorRef) -> Unit) {
@@ -109,17 +127,22 @@ abstract class AbstractActor protected constructor(private val actorScope: Actor
 
     companion object {
 
-        private suspend fun <T: AbstractActor>processMessages(actorScope: ActorScope, actor:T) = runCatching{
-            for (message in actorScope.channel) { actor.__receive__(message) }
-            actor.LOG.info("Actor {} exiting.", actor.name)
-        }.onFailure { t ->
-            actor.LOG.error("Error processing message in actor {}, actor exiting. error: {} message: {}", actor.name, t.javaClass, t.message)
-            actor.LOG.debug(t.message, t)
-            if (actor.parent != null) {
-                actor.parent.send(ActorException(actor.name, actor.channel, t))
-            } else {
-                throw t
+        // A message that fails doesn't end the actor: the error goes to the parent, which decides
+        // what to do (ActionManager fails the deployment). Cancellation ends the actor normally.
+        private suspend fun <T: AbstractActor>processMessages(actorScope: ActorScope, actor:T) {
+            try {
+                for (message in actorScope.channel) {
+                    try {
+                        actor.__receive__(message)
+                    } catch (t: Throwable) {
+                        if (t.isFatal()) throw t
+                        actor.reportError(t)
+                    }
+                }
+            } catch (e: CancellationException) {
+                actor.LOG.debug("Actor {} cancelled.", actor.name)
             }
+            actor.LOG.info("Actor {} exiting.", actor.name)
         }
 
         private fun <T : AbstractActor> __workflow__(logger: Logger, block: suspend (ActorScope) -> T): suspend ActorScope.() -> Unit = {
@@ -174,8 +197,14 @@ data class ParentActor(val ref: ActorRef) : AbstractCoroutineContextElement(Pare
     override fun toString(): String = "ParentActor($ref)"
 }
 
-class ActorException(val actorName: String, val actorRef: ActorRef, throwable: Throwable) : Exception(throwable)
-class ActorCreationException(val actorName: String, val actorRef: ActorRef, throwable: Throwable) : Exception(throwable)
+open class ActorException(val actorName: String, val actorRef: ActorRef, throwable: Throwable) : Exception(throwable) {
+    val details: String get() = "Internal error in $actorName: ${cause!!.javaClass.name}: ${cause!!.message}"
+}
+class ActorCreationException(actorName: String, actorRef: ActorRef, throwable: Throwable) :
+    ActorException(actorName, actorRef, throwable)
+
+// Errors no client code should catch: cancellation, and JVM errors (out of memory, stack overflow)
+internal fun Throwable.isFatal(): Boolean = this is CancellationException || this is VirtualMachineError
 
 
 @OptIn(ExperimentalCoroutinesApi::class)

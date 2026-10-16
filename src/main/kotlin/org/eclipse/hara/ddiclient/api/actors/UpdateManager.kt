@@ -28,7 +28,6 @@ import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest.Status.Result.Fi
 import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest.Status.Result.Finished.success
 import org.eclipse.hara.ddi.api.model.DeploymentFeedbackRequest.Status.Result.Finished.failure
 import kotlinx.coroutines.ObsoleteCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.eclipse.hara.ddi.api.model.CancelFeedbackRequest
 import org.eclipse.hara.ddi.api.model.DeploymentBaseResponse
@@ -96,7 +95,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
     }
 
     private fun forceUpdateDevice(state: State): String {
-        waitingAuthJob = launch {
+        waitingAuthJob = launchCatching {
             forceRequest.onAuthorizationReceive {
                 startUpdateProcedure(DeploymentInfo(state.deplBaseResp!!))
             }
@@ -107,7 +106,7 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
     private fun attemptUpdateDevice(state: State): String {
         become(waitingUpdateAuthorization(state))
-        waitingAuthJob = launch {
+        waitingAuthJob = launchCatching {
             softRequest.onAuthorizationReceive(
                 onWaitForAuthorization = {
                     notificationManager.send(

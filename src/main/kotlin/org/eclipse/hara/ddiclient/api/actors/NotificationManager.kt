@@ -23,9 +23,19 @@ private constructor(scope: ActorScope) : AbstractActor(scope) {
 
         when (msg) {
 
-            is MessageListener.Message -> listeners.forEach { it.onMessage(msg) }
+            is MessageListener.Message -> listeners.forEach { notify(it, msg) }
 
             else -> handleMsgDefault(msg)
+        }
+    }
+
+    // A failing listener must not keep the message from the others, nor affect the client
+    private fun notify(listener: MessageListener, msg: MessageListener.Message) {
+        try {
+            listener.onMessage(msg)
+        } catch (t: Throwable) {
+            if (t.isFatal()) throw t
+            LOG.error("Message listener ${listener.javaClass.name} failed on $msg", t)
         }
     }
 
